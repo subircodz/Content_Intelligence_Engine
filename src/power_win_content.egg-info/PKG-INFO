@@ -1,0 +1,9 @@
+Metadata-Version: 2.4
+Name: power-win-content
+Version: 0.1.0
+Summary: AI-powered content production system for Power.win
+Requires-Python: >=3.13
+Requires-Dist: httpx
+Requires-Dist: python-dotenv
+Requires-Dist: pydantic
+Requires-Dist: playwright
