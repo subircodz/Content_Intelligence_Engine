@@ -4,7 +4,7 @@ from typing import Optional
 
 from rich.console import Console
 
-from power_win_content.agents.content_writer import ContentWriterAgent
+from power_win_content.agents.domain_content_writer import DomainContentWriterAgent
 from power_win_content.client import ClientConfig
 from power_win_content.competitors.analyzer import CompetitorAnalyzer
 from power_win_content.competitors.models import CompetitorAnalysis
@@ -14,11 +14,11 @@ from power_win_content.output.docx_writer import save_article_docx
 from power_win_content.research.domain_researcher import DomainResearcher
 from power_win_content.research.models import PhaseStatus
 from power_win_content.research.tools.sitemap_fetcher import SitemapFetcher
-from power_win_content.strategy.strategist import ContentStrategist
+from power_win_content.strategy.domain_strategist import DomainContentStrategist
 from power_win_content.ui import (
     display_banner, display_competitor_domains, display_competitor_summary,
     display_error, display_info, display_pipeline_completion, display_phase_result,
-    display_summary_table, display_warning, display_welcome, prompt_user_topic,
+    display_summary_table, display_welcome, prompt_user_topic,
 )
 
 console = Console()
@@ -32,7 +32,6 @@ def run_pipeline(topic: str, client_config: ClientConfig) -> Optional[str]:
     llm_client = LLMClient(base_url=settings.omniroute_base_url, model=settings.omniroute_model)
     pipeline_statuses: list[PhaseStatus] = []
 
-    # === RESEARCH ===
     display_info("Executing Research Phase (first-party and external sources)...")
     research_status = PhaseStatus.FAILED
     research_result = None
@@ -57,7 +56,6 @@ def run_pipeline(topic: str, client_config: ClientConfig) -> Optional[str]:
     ext_facts = len(research_result.external_facts)
     display_phase_result("Research Phase", research_status, f"{facts} first-party facts, {ext_facts} external facts found.")
 
-    # === COMPETITORS ===
     display_info("Discovering content competitors...")
     competitor_status = PhaseStatus.FAILED
     competitor_analysis: Optional[CompetitorAnalysis] = None
@@ -82,12 +80,11 @@ def run_pipeline(topic: str, client_config: ClientConfig) -> Optional[str]:
         display_phase_result("Competitor Analysis", competitor_status, f"Could not complete: {exc}")
     pipeline_statuses.append(competitor_status)
 
-    # === STRATEGY ===
     strategy_status = PhaseStatus.FAILED
     brief = None
     try:
         with console.status("[bold cyan]Executing Strategy Phase (SEO, AIO, GEO brief)..."):
-            strategist = ContentStrategist(llm_client=llm_client)
+            strategist = DomainContentStrategist(llm_client=llm_client, client_config=client_config)
             brief, strategy_status = strategist.create_brief(topic, research_result, competitor_analysis=competitor_analysis)
         display_phase_result("Strategy Phase", strategy_status)
     except Exception as exc:
@@ -98,12 +95,11 @@ def run_pipeline(topic: str, client_config: ClientConfig) -> Optional[str]:
         display_pipeline_completion(False, any(s == PhaseStatus.DEGRADED for s in pipeline_statuses))
         return None
 
-    # === WRITING ===
     writing_status = PhaseStatus.FAILED
     article = None
     try:
         with console.status("[bold cyan]Executing Writing Phase..."):
-            article = ContentWriterAgent(llm_client=llm_client).generate(brief)
+            article = DomainContentWriterAgent(llm_client=llm_client, client_config=client_config).generate(brief)
         if article and article.strip():
             writing_status = PhaseStatus.SUCCESS
             display_phase_result("Writing Phase", writing_status, f"~{len(article.split())} words generated.")
@@ -116,7 +112,6 @@ def run_pipeline(topic: str, client_config: ClientConfig) -> Optional[str]:
         display_pipeline_completion(False, any(s == PhaseStatus.DEGRADED for s in pipeline_statuses))
         return None
 
-    # === DOCX ===
     docx_status = PhaseStatus.FAILED
     docx_path = None
     try:
