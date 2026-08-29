@@ -1,7 +1,9 @@
 """Domain-independent research facade."""
 
+from urllib.parse import urlparse
+
 from power_win_content.client import ClientConfig
-from power_win_content.research.models import ResearchPlan, ResearchQuestion, SourceType
+from power_win_content.research.models import ResearchPlan, ResearchQuestion, Source, SourceType
 from power_win_content.research.researcher import Researcher
 
 
@@ -37,17 +39,25 @@ class DomainResearcher(Researcher):
     def _build_plan_prompt(self, topic: str) -> str:
         return (
             "You are a research planner for a domain-independent content intelligence engine.\n\n"
-            f"Target brand: {self.client_config.name}\n"
-            f"Target domain: {self.client_config.domain}\n"
+            f"Target brand: {self.client_config.name}\nTarget domain: {self.client_config.domain}\n"
             f"Topic: {topic}\n\n"
-            "Return ONLY valid JSON with questions, required_power_win_checks, "
-            "required_external_checks, and claims_to_verify. The field name "
-            "required_power_win_checks is retained for compatibility and means "
-            "required first-party checks for the configured target site. Each question "
-            "must contain question, priority, required_source_types, is_power_win_check, and notes. "
-            "Use is_power_win_check=true only for target-site first-party verification. "
-            "Do not assume any particular industry."
+            "Return ONLY valid JSON with questions, required_power_win_checks, required_external_checks, "
+            "and claims_to_verify. The legacy required_power_win_checks field means required first-party "
+            "checks for the configured target site. Use is_power_win_check=true only for target-site "
+            "first-party verification. Do not assume any particular industry."
         )
+
+    def _filter_sources_by_question(self, sources: list[Source], question: ResearchQuestion) -> list[Source]:
+        """Prioritize configured first-party sources without assuming a particular hostname."""
+        def priority(source: Source) -> int:
+            host = urlparse(str(source.url)).hostname or ""
+            host = host.lower().removeprefix("www.")
+            if host in self.client_config.first_party_domains:
+                return 1
+            if host.endswith(f".{self.client_config.domain}"):
+                return 2
+            return 3
+        return sorted(sources, key=priority)
 
     def _build_extraction_prompt(self, content, source, question, is_power_win):
         source_type = source.source_type.value if hasattr(source.source_type, "value") else source.source_type
@@ -57,8 +67,8 @@ class DomainResearcher(Researcher):
             f"Source: {source.name} ({source.url})\nSource Type: {source_type}\n"
             f"Research Question: {question}\nTarget First-Party Check: {is_power_win}\n\n"
             f"Source Content (truncated):\n{content[:8000]}\n\n"
-            "Return ONLY JSON containing a claims array. Every excerpt MUST be an exact quote "
-            "from the supplied source content. Extract only claims directly supported by that content."
+            "Return ONLY JSON containing a claims array. Every excerpt MUST be an exact quote from the "
+            "supplied source content. Extract only claims directly supported by that content."
         )
 
     def _build_batch_analysis_prompt(self, evidence_list, question, is_power_win):
