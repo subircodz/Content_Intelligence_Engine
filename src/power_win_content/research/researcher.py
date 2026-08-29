@@ -1,3 +1,4 @@
+import hashlib
 import json
 import logging
 import time
@@ -324,7 +325,7 @@ class Researcher:
         except ValueError:
             nature = InformationNature.FACT
 
-        excerpt = claim_data.get("excerpt", "")
+        excerpt = str(claim_data.get("excerpt", "")).strip()
         if not excerpt:
             return None
         try:
@@ -334,8 +335,20 @@ class Researcher:
         if not 0 <= source_index < len(evidence_list):
             return None
 
-        source, _, _, _, retrieval_method = evidence_list[source_index]
-        evidence = Evidence(source=source, excerpt=excerpt, notes=claim_data.get("notes"), retrieval_method=retrieval_method)
+        source, content, _, _, retrieval_method = evidence_list[source_index]
+        if excerpt not in content:
+            logger.warning("Rejecting claim with excerpt not present in retrieved source: %s", source.url)
+            return None
+
+        content_sha256 = hashlib.sha256(content.encode("utf-8")).hexdigest()
+        evidence = Evidence(
+            source=source,
+            excerpt=excerpt,
+            notes=claim_data.get("notes"),
+            retrieval_method=retrieval_method,
+            content_sha256=content_sha256,
+            excerpt_verified=True,
+        )
         return Claim(
             text=claim_data.get("text", ""),
             status=status,
