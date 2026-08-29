@@ -1,5 +1,6 @@
 """Discover competitors and determine whether a topic is covered by the market."""
 
+import difflib
 import json
 import logging
 import re
@@ -35,6 +36,11 @@ _DOMAIN_BLACKLIST_SUFFIXES = (
     ".facebook.com", ".instagram.com", ".twitter.com", ".x.com",
 )
 
+_RELEVANCE_THRESHOLD = 0.50
+_MIN_ANALYZED_SOURCES = 5
+_MIN_ANALYZED_DOMAINS = 3
+_ELEMENT_SIMILARITY_THRESHOLD = 0.78
+
 
 def _normalize_domain(url: str) -> Optional[str]:
     try:
@@ -59,6 +65,24 @@ def _topic_to_queries(topic: str) -> list[str]:
     return [clean, f"{clean} explained"]
 
 
+def _normalize_element(value: str) -> str:
+    value = re.sub(r"[^\w\s]", " ", value.lower())
+    return re.sub(r"\s+", " ", value).strip()
+
+
+def _element_similarity(left: str, right: str) -> float:
+    """Return a conservative semantic-text similarity without an embedding dependency."""
+    if left == right:
+        return 1.0
+    left_tokens = set(left.split())
+    right_tokens = set(right.split())
+    if not left_tokens or not right_tokens:
+        return 0.0
+    overlap = len(left_tokens & right_tokens) / len(left_tokens | right_tokens)
+    sequence = difflib.SequenceMatcher(None, left, right).ratio()
+    return max(overlap, sequence)
+
+
 class CompetitorAnalyzer:
     """Build a market coverage assessment before asking for content gaps."""
 
@@ -75,6 +99,8 @@ class CompetitorAnalyzer:
         self.search_tool = search_tool or WebSearchTool(timeout=20.0)
         self.fetcher = fetcher or WebFetcher(timeout=15.0)
         self.max_competitors = max_competitors
+        self.minimum_analysis_required = min(_MIN_ANALYZED_SOURCES, max_competitors)
+        self.minimum_domains_required = min(_MIN_ANALYZED_DOMAINS, max_competitors)
 
     def analyze(self, topic: str) -> tuple[CompetitorAnalysis, PhaseStatus]:
         queries = _topic_to_queries(topic)
@@ -86,28 +112,17 @@ class CompetitorAnalyzer:
         analysis.coverage.search_queries_attempted = len(queries)
         analysis.coverage.search_queries_succeeded = successful_queries
         analysis.coverage.candidate_pages_discovered = len(unique_sources)
+        analysis.coverage.minimum_analysis_required = self.minimum_analysis_required
+        analysis.coverage.minimum_domains_required = self.minimum_domains_required
 
         domains_seen: set[str] = set()
-        llm_calls_used = 0
-        llm_call_budget = self.max_competitors + 1
-
         for source in selected:
             domain = _normalize_domain(source.url) or "unknown"
             if domain in domains_seen:
                 continue
             domains_seen.add(domain)
             fetched_content = self._fetch_page(source.url)
-            if llm_calls_used < llm_call_budget:
-                enriched = self._enrich_source_from_fetch(source, fetched_content, topic)
-                llm_calls_used += 1
-            else:
-                enriched = CompetitorSource(
-                    domain=domain,
-                    url=source.url,
-                    title=source.title,
-                    fetched_successfully=False,
-                    fetch_failure_reason="analysis budget exceeded",
-                )
+            enriched = self._enrich_source_from_fetch(source, fetched_content, topic)
             analysis.analyzed_sources.append(enriched)
 
         analysis.domains_analyzed = len(analysis.analyzed_sources)
@@ -118,7 +133,9 @@ class CompetitorAnalyzer:
 
         relevant_sources = [
             s for s in analysis.analyzed_sources
-            if s.fetched_successfully and s.coverage_scope in {"FULL", "PARTIAL"} and s.relevance_score >= 0.5
+            if s.fetched_successfully
+            and s.coverage_scope in {"FULL", "PARTIAL"}
+            and s.relevance_score >= _RELEVANCE_THRESHOLD
         ]
         analysis.coverage.relevant_pages_found = len(relevant_sources)
         analysis.coverage.relevant_domains_found = len({s.domain for s in relevant_sources})
@@ -129,7 +146,10 @@ class CompetitorAnalyzer:
 
         if successful_queries == 0:
             return analysis, PhaseStatus.FAILED
-        if analysis.failures > 0 or analysis.coverage.status == TopicCoverageStatus.INSUFFICIENT_DATA:
+        if analysis.coverage.status in {
+            TopicCoverageStatus.SEARCH_FAILED,
+            TopicCoverageStatus.INSUFFICIENT_DATA,
+        } or analysis.failures > 0:
             return analysis, PhaseStatus.DEGRADED
         return analysis, PhaseStatus.SUCCESS
 
@@ -235,21 +255,27 @@ class CompetitorAnalyzer:
             analysis.coverage.rationale = "All market-search queries failed. No market conclusion is safe."
             return
 
+        sufficient_sample = (
+            analysis.coverage.successfully_analyzed >= self.minimum_analysis_required
+            and analysis.domains_analyzed >= self.minimum_domains_required
+            and analysis.failures == 0
+        )
+
         if not relevant_sources:
-            if analysis.coverage.candidate_pages_discovered >= 5 and analysis.failures == 0:
+            if sufficient_sample:
                 analysis.coverage.status = TopicCoverageStatus.NOT_FOUND
-                analysis.coverage.confidence = CoverageConfidence.MEDIUM
+                analysis.coverage.confidence = CoverageConfidence.HIGH
                 analysis.coverage.opportunity_type = OpportunityType.MARKET_WHITESPACE
                 analysis.coverage.rationale = (
-                    "Multiple candidate competitor pages were discovered and analyzed, but none meaningfully "
-                    "covered the requested topic. This is classified as market whitespace rather than a competitive gap."
+                    "A sufficient, successfully analyzed and domain-diverse market sample contained no "
+                    "meaningful coverage of the requested topic. This is market whitespace, not a search failure."
                 )
             else:
                 analysis.coverage.status = TopicCoverageStatus.INSUFFICIENT_DATA
                 analysis.coverage.confidence = CoverageConfidence.LOW
                 analysis.coverage.opportunity_type = None
                 analysis.coverage.rationale = (
-                    "Search completed, but the evidence set was too small or incomplete to establish either "
+                    "Search completed, but the successfully analyzed market sample was insufficient to establish "
                     "market coverage or market whitespace with confidence."
                 )
             return
@@ -268,9 +294,10 @@ class CompetitorAnalyzer:
 
         analysis.coverage.status = status
         analysis.coverage.opportunity_type = OpportunityType.COMPETITIVE_GAP
+        relevant_count = len(relevant_sources)
         analysis.coverage.confidence = (
-            CoverageConfidence.HIGH if len(relevant_sources) >= 3
-            else CoverageConfidence.MEDIUM if len(relevant_sources) >= 2
+            CoverageConfidence.HIGH if relevant_count >= 3
+            else CoverageConfidence.MEDIUM if relevant_count >= 2
             else CoverageConfidence.LOW
         )
         analysis.coverage.rationale = rationale
@@ -325,25 +352,67 @@ class CompetitorAnalyzer:
         )
 
     def _build_coverage_elements(self, sources: list[CompetitorSource]) -> list[CoverageElement]:
+        """Build a deterministic semantic coverage matrix from extracted competitor elements.
+
+        The LLM extracts page-level elements, but clustering and coverage counts are performed
+        by the application. Similar labels such as "payment options" and "payment methods"
+        are grouped when their normalized text is sufficiently similar; exact string equality
+        is not required.
+        """
         if not sources:
             return []
-        counts: dict[str, set[str]] = {}
+
+        clusters: list[dict[str, object]] = []
         for source in sources:
-            elements = set(source.sections + source.questions_answered + source.entities)
-            for element in elements:
-                normalized = re.sub(r"\s+", " ", element.strip()).lower()
-                if normalized:
-                    counts.setdefault(normalized, set()).add(source.domain)
-        total = len({s.domain for s in sources})
-        return [
-            CoverageElement(
-                element=element,
-                covered_by_domains=sorted(domains),
-                coverage_count=len(domains),
-                coverage_percentage=round((len(domains) / total) * 100, 2) if total else 0.0,
+            typed_elements = (
+                [("section", value) for value in source.sections]
+                + [("question", value) for value in source.questions_answered]
+                + [("entity", value) for value in source.entities]
             )
-            for element, domains in sorted(counts.items(), key=lambda item: (-len(item[1]), item[0]))
-        ]
+            seen_for_source: set[tuple[str, str]] = set()
+            for element_type, value in typed_elements:
+                normalized = _normalize_element(value)
+                if not normalized or (element_type, normalized) in seen_for_source:
+                    continue
+                seen_for_source.add((element_type, normalized))
+
+                best_cluster = None
+                best_score = 0.0
+                for cluster in clusters:
+                    if cluster["element_type"] != element_type:
+                        continue
+                    score = _element_similarity(normalized, str(cluster["canonical"]))
+                    if score >= _ELEMENT_SIMILARITY_THRESHOLD and score > best_score:
+                        best_cluster = cluster
+                        best_score = score
+
+                if best_cluster is None:
+                    clusters.append({
+                        "canonical": normalized,
+                        "element_type": element_type,
+                        "variants": [value.strip()],
+                        "domains": {source.domain},
+                    })
+                else:
+                    best_cluster["variants"].append(value.strip())
+                    best_cluster["domains"].add(source.domain)
+
+        total_domains = len({source.domain for source in sources})
+        elements: list[CoverageElement] = []
+        for cluster in clusters:
+            domains = sorted(cluster["domains"])
+            elements.append(
+                CoverageElement(
+                    element=str(cluster["canonical"]),
+                    element_type=str(cluster["element_type"]),
+                    variants=sorted(set(cluster["variants"])),
+                    covered_by_domains=domains,
+                    coverage_count=len(domains),
+                    coverage_percentage=round((len(domains) / total_domains) * 100, 2) if total_domains else 0.0,
+                )
+            )
+
+        return sorted(elements, key=lambda item: (-item.coverage_count, item.element_type, item.element))
 
     @staticmethod
     def _parse_json(response: Optional[str]) -> dict:

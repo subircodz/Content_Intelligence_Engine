@@ -50,9 +50,13 @@ class CompetitorSource(BaseModel):
 
 
 class CoverageElement(BaseModel):
+    """A semantically clustered element observed across competitor pages."""
+
     model_config = ConfigDict(use_enum_values=True)
 
     element: str
+    element_type: str = "unknown"
+    variants: list[str] = Field(default_factory=list)
     covered_by_domains: list[str] = Field(default_factory=list)
     coverage_count: int = 0
     coverage_percentage: float = 0.0
@@ -85,6 +89,8 @@ class CoverageAssessment(BaseModel):
     candidate_pages_discovered: int = 0
     successfully_analyzed: int = 0
     failed_analysis: int = 0
+    minimum_analysis_required: int = 0
+    minimum_domains_required: int = 0
 
 
 class CompetitorAnalysis(BaseModel):
