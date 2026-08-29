@@ -1,395 +1,762 @@
-# Power.win Content Intelligence Platform
+# Content Intelligence Engine
 
-An AI-assisted content production system for Power.win. It takes an article topic or title and produces a research-backed DOCX draft with competitor gap analysis and an SEO/AIO/GEO strategy brief.
+An AI-assisted content intelligence and production engine for researching a topic, understanding the competitive market, identifying content opportunities, creating an SEO/AIO/GEO content strategy, and producing a human-reviewable article draft.
 
-The platform is an editorial production assistant. Every generated document requires human editorial review before publication.
+The engine is **domain-independent**. A target brand/domain is supplied as configuration. Power.win is currently the first configured client/use case, but the core pipeline is designed to work with other domains without changing the research, competitor, strategy, or writing engine.
+
+> **Editorial requirement:** generated content is an editorial draft. Human review is required before publication.
 
 ---
 
-## Objective
+## Product Objective
 
-Reduce manual research and content preparation for Power.win articles while maintaining:
+Given a target domain and a topic, the engine should answer:
 
-- Research-backed writing with verifiable sources
-- SEO alignment (keywords, headings, search intent)
-- AIO alignment (questions and direct answers for AI answer engines)
-- GEO alignment (entities and authoritative sources for generative engines)
-- Competitor content-gap awareness
-- Consistent DOCX output
-- Human editorial control at every step
+> **Is this topic already meaningfully covered by the competitor market?**
 
-## Business Goal
+It then follows one of two content-opportunity paths.
 
-An editor provides one input — the article title — and receives research, evidence, competitor gaps, strategy, and a formatted article draft ready for human editing and publication.
+### Case 1 — Topic found in the competitor market
 
-## What the Application Does
-
-```
-User Topic
-    |
-Multi-Engine Web Search (DuckDuckGo + Google + Bing)
-    |
-First-Party Source Discovery (power.win sitemaps)
-    |
-Webpage Fetching (HTTP with Playwright fallback)
-    |
-Evidence Extraction & Claim Classification (LLM)
-    |
-Competitor Discovery & Content Gap Analysis
-    |
-SEO / AIO / GEO Strategy Brief (LLM)
-    |
-Article Generation (LLM, Markdown)
-    |
-DOCX Document (+ competitor-gap appendix)
+```text
+Topic
+  |
+  v
+Market / Competitor Research
+  |
+  v
+Meaningful competitor coverage found
+  |
+  v
+Competitive Coverage Analysis
+  |
+  v
+Content Gap Analysis
+  |
+  v
+Content Differentiation Strategy
+  |
+  v
+SEO + AIO + GEO Strategy
+  |
+  v
+Article Draft
 ```
 
-## Key Deliverables
+The goal is to understand what competitors cover, where their coverage is weak or incomplete, and what useful content opportunities can produce a stronger article.
 
-| Deliverable | Description |
-|---|---|
-| Research package | Research questions, first-party Power.win facts, external facts, research gaps, claim statuses |
-| First-party evidence | Facts fetched from power.win properties, never fabricated |
-| External evidence | Facts from regulatory, government, authoritative, and general web sources |
-| Competitor analysis | Discovered competitor pages and their content coverage |
-| Content gaps | Missing topics, questions, entities, comparisons, statistics, concerns, angles |
-| SEO strategy | Recommended title (secondary), primary keyword, secondary keywords, heading structure, search intent |
-| AIO strategy | Questions requiring direct answers, concise definitions |
-| GEO strategy | Entities to mention, authoritative sources to reference |
-| Article draft | Markdown-formatted article; the user's original title is preserved exactly |
-| DOCX document | Word file with proper headings, lists, formatting, and a competitor-gap appendix |
-| Phase status reporting | SUCCESS / DEGRADED / FAILED for each pipeline phase |
+### Case 2 — Topic not found in the competitor market
 
-## Complete Pipeline Architecture
-
-```
-CLI / UI  (main.py, ui.py)
-    |
-    v
-Researcher  (research/researcher.py)
-    |
-    |-- Search Providers  (research/tools/web_search.py)
-    |     |-- DuckDuckGoProvider   (HTML scraping, no key)
-    |     |-- GoogleSearchProvider (API primary, Playwright fallback)
-    |     |-- BingSearchProvider   (Playwright primary, legacy API path)
-    |
-    |-- SitemapFetcher   (first-party discovery)
-    |-- HybridFetcher    (HTTP + Playwright fallback)
-    |-- BrowserFetcher   (SPA rendering)
-    |
-    v
-ResearchResult  (claims, evidence, gaps)
-    |
-    v
-CompetitorAnalyzer  (competitors/analyzer.py)
-    |
-    v
-ContentStrategist  (strategy/strategist.py)  ->  ContentBrief
-    |
-    v
-ContentWriterAgent  (agents/content_writer.py)
-    |
-    v
-DOCX Writer  (output/docx_writer.py)
-    |
-    v
-output/<slugified-title>.docx
+```text
+Topic
+  |
+  v
+Market / Competitor Research
+  |
+  v
+No meaningful competitor coverage
+  |
+  v
+Market Whitespace / Topic Opportunity
+  |
+  v
+Independent Topic Research
+  |
+  v
+SEO + AIO + GEO Strategy
+  |
+  v
+Article Draft
 ```
 
-Each phase returns `(result, PhaseStatus)`. A phase failing does not always stop the pipeline; degraded phases continue with whatever data is available.
+The system must **not manufacture competitor gaps** when meaningful competitor coverage does not exist. This is a market-whitespace opportunity and requires a different content strategy.
+
+### Important distinction
+
+`NOT_FOUND` must never mean merely "the search returned nothing". The system must distinguish between:
+
+- `TOPIC_FOUND` — meaningful competitor coverage was identified
+- `TOPIC_PARTIALLY_FOUND` — some meaningful coverage exists, but market coverage is limited
+- `TOPIC_NOT_FOUND` — sufficient market research was completed and meaningful competitor coverage was not identified
+- `INSUFFICIENT_DATA` — the evidence collected is not sufficient to determine market coverage
+- `SEARCH_FAILED` — the search/retrieval infrastructure failed
+
+This distinction is fundamental to Case 1 vs Case 2.
+
+---
+
+## Product Architecture
+
+```text
+                         CONTENT JOB
+                             |
+          +------------------+------------------+
+          |                                     |
+          v                                     v
+   Target Domain                              Topic
+          |                                     |
+          +------------------+------------------+
+                             |
+                             v
+                    MARKET RESEARCH
+                             |
+                  Competitor Discovery
+                             |
+                  Topic Coverage Assessment
+                             |
+               +-------------+-------------+
+               |                           |
+               v                           v
+       TOPIC FOUND / PARTIAL         TOPIC NOT FOUND
+               |                           |
+               v                           v
+       Competitive Gap              Market Whitespace
+          Analysis                    Analysis
+               |                           |
+               +-------------+-------------+
+                             |
+                             v
+                     Content Strategy
+                             |
+                    +--------+--------+
+                    |        |        |
+                    v        v        v
+                   SEO      AIO      GEO
+                    |        |        |
+                    +--------+--------+
+                             |
+                             v
+                         Writing
+                             |
+                             v
+                    Human-reviewable Draft
+                             |
+                             v
+                           DOCX
+```
+
+The engine separates **market intelligence** from **target-domain configuration**. The market research layer can therefore be reused for any target domain.
+
+---
+
+## Domain Independence
+
+The core engine must not assume that the target is Power.win, a gambling company, or any other specific industry.
+
+The target is represented through configuration:
+
+```text
+ClientConfig
+├── name
+├── domain
+├── first_party_domains
+└── first_party_sitemaps
+```
+
+For example:
+
+```text
+Client A
+  Brand: Power.win
+  Domain: power.win
+  First-party sources: configured Power.win sitemaps
+```
+
+and:
+
+```text
+Client B
+  Brand: Example
+  Domain: example.com
+  First-party sources: configured Example sitemaps
+```
+
+use the same core research, competitor, strategy, and writing engine.
+
+### Design rule
+
+**Power.win-specific behavior belongs in client configuration/adapters, not in the core engine.**
+
+Examples of domain-specific configuration include:
+
+- target brand name
+- target domain
+- first-party domains
+- first-party sitemaps
+- editorial rules
+- brand terminology
+- industry-specific source rules, where genuinely necessary
+
+Examples of domain-independent functionality include:
+
+- search
+- webpage retrieval
+- source normalization
+- competitor discovery
+- topic coverage analysis
+- gap/whitespace analysis
+- evidence extraction
+- content strategy
+- SEO/AIO/GEO planning
+- article generation
+- DOCX generation
+
+---
+
+## Current Pipeline
+
+```text
+CLI / UI
+    |
+    v
+Content Job + ClientConfig
+    |
+    v
+Research
+    |-- Multi-provider Web Search
+    |-- First-party Sitemap Discovery
+    |-- HTTP Fetching
+    |-- Playwright Fallback
+    |-- Evidence / Claim Extraction
+    |
+    v
+Competitor Intelligence
+    |-- Candidate Discovery
+    |-- Target-domain Exclusion
+    |-- Competitor Fetching
+    |-- Competitor Coverage Extraction
+    |-- Coverage / Gap Analysis
+    |
+    v
+Content Strategy
+    |-- Search Intent
+    |-- SEO
+    |-- AIO
+    |-- GEO
+    |-- Competitive Differentiation / Whitespace
+    |
+    v
+Content Writer
+    |
+    v
+DOCX Output
+```
+
+Each pipeline phase reports `SUCCESS`, `DEGRADED`, or `FAILED`.
+
+---
 
 ## Repository Structure
 
-```
-power_win_content/
-├── pyproject.toml              # Project metadata and dependencies
-├── README.md                   # This file
-├── .env                        # Local secrets (never committed)
+```text
+content-intelligence-engine/
+├── pyproject.toml
+├── README.md
+├── .env                         # Local secrets; never commit
 ├── .gitignore
 ├── .claude/
-│   └── CLAUDE.md               # Engineering guide for coding agents
-├── output/                     # Generated DOCX files (created at runtime)
-├── scripts/                    # Developer utilities (not part of the app)
-├── tests/                      # Test suite (pytest)
-└── src/power_win_content/
-    ├── main.py                 # CLI entry point, pipeline orchestration
-    ├── config.py               # Settings from environment variables
-    ├── ui.py                   # Rich terminal UI
-    ├── llm/client.py           # OpenAI-compatible LLM HTTP client
-    ├── research/
-    │   ├── models.py           # Source, Claim, ResearchResult, enums
-    │   ├── researcher.py       # Bounded research orchestration
-    │   └── tools/
-    │       ├── web_search.py   # Multi-engine search + dedup
-    │       ├── web_fetcher.py  # Plain HTTP fetcher
-    │       ├── hybrid_fetcher.py
-    │       ├── browser_fetcher.py
-    │       └── sitemap_fetcher.py
-    ├── competitors/
-    │   ├── analyzer.py         # Discovery + coverage extraction
-    │   └── models.py           # CompetitorSource, ContentGap, CompetitorAnalysis
-    ├── strategy/
-    │   ├── strategist.py       # ContentBrief generation
-    │   └── models.py           # SEO/AIO/GEO strategy models
-    ├── agents/
-    │   └── content_writer.py   # Markdown article generation
-    └── output/
-        └── docx_writer.py      # Markdown -> DOCX conversion
+│   └── CLAUDE.md
+├── output/                      # Generated DOCX files
+├── scripts/                     # Developer/live utilities
+├── tests/                       # Automated tests
+└── src/
+    └── power_win_content/       # Python package; package rename is a follow-up cleanup
+        ├── main.py              # Pipeline orchestration / CLI
+        ├── client.py            # Domain-independent ClientConfig
+        ├── config.py            # Environment settings
+        ├── ui.py
+        ├── llm/
+        │   └── client.py
+        ├── research/
+        │   ├── models.py
+        │   ├── researcher.py
+        │   ├── domain_researcher.py
+        │   └── tools/
+        │       ├── web_search.py
+        │       ├── web_fetcher.py
+        │       ├── hybrid_fetcher.py
+        │       ├── browser_fetcher.py
+        │       └── sitemap_fetcher.py
+        ├── competitors/
+        │   ├── analyzer.py
+        │   └── models.py
+        ├── strategy/
+        │   ├── strategist.py
+        │   ├── domain_strategist.py
+        │   └── models.py
+        ├── agents/
+        │   ├── content_writer.py
+        │   └── domain_content_writer.py
+        └── output/
+            └── docx_writer.py
 ```
+
+The current Python import package retains its historical `power_win_content` name during the transition. The distribution/project identity has been changed to **`content-intelligence-engine`**. Removing the remaining package-level legacy name is a separate cleanup step and should not change behavior.
+
+---
 
 ## Prerequisites
 
 | Requirement | Detail |
 |---|---|
 | Python | >= 3.13 |
-| pip | Bundled with Python |
-| Network access | Required for search, fetching, and the LLM API |
+| Network access | Required for web search, webpage fetching, and the LLM API |
 | LLM provider | Any OpenAI-compatible `/chat/completions` endpoint |
-| Playwright Chromium | Installed once via `playwright install chromium` |
+| Playwright Chromium | Required for browser-based search/fetch fallbacks |
 
-Dependencies (installed automatically): `httpx`, `python-docx`, `python-dotenv`, `pydantic`, `playwright`, `rich`; dev group adds `pytest`.
-
-## Python / Virtual Environment Setup
-
-The project uses a standard virtual environment named `venv` in the project root.
-
-```bash
-# Linux / macOS
-python3 -m venv venv
-source venv/bin/activate
-
-# Windows
-python -m venv venv
-venv\Scripts\activate
-```
-
-## Playwright Browser Installation
-
-One-time install of the Chromium browser used for SPA rendering and search fallback:
+Install Chromium once:
 
 ```bash
 playwright install chromium
 ```
+
+---
 
 ## Environment Configuration
 
-The application loads a `.env` file from the project root via python-dotenv. Every variable below exists in the actual configuration code (`config.py`, `research/tools/web_search.py`).
+The application loads `.env` from the project root through `python-dotenv`.
 
-## Required API Credentials
+### Target-domain configuration
 
-There is exactly one required external dependency at runtime: a reachable LLM API. Without it, research planning falls back to deterministic defaults, strategy degrades to defaults, and article writing fails.
-
-## LLM Provider Configuration
-
-The application calls any OpenAI-compatible chat completions endpoint. Configure it through these variables (actual names used by the code):
-
-| Variable | Required | Purpose | Example placeholder |
-|---|---|---|---|
-| `OMNIROUTE_BASE_URL` | Yes (has a localhost default) | Base URL of the OpenAI-compatible LLM API | `https://llm.example.com/v1` |
-| `OMNIROUTE_MODEL` | Yes (default `auto`) | Model name sent in requests | `gpt-4o` |
-
-Security note: the base URL may embed authentication depending on your provider. Treat it like a secret — do not commit real values.
-
-## Search Provider Configuration
+The target site is configurable rather than hard-coded.
 
 | Variable | Required | Purpose |
 |---|---|---|
-| *(none)* | — | DuckDuckGo works with no credentials |
-| `GOOGLE_API_KEY` | Optional | Google Custom Search JSON API key |
-| `GOOGLE_CSE_ID` | Optional | Google Custom Search Engine ID (both values needed for Google API search) |
-| `BING_API_KEY` | Optional / legacy | The Bing Search API was retired on 2025-08-11. Bing search uses the built-in Playwright method; only configure this if you hold a pre-retirement key that still works |
+| `TARGET_DOMAIN` | Optional/configurable | Target domain being researched for content production |
+| `TARGET_BRAND` | Optional/configurable | Human-readable target brand name |
+| `TARGET_FIRST_PARTY_SITEMAPS` | Optional | Comma-separated first-party sitemap URLs |
 
-No provider other than the LLM is mandatory. With zero search credentials the pipeline runs using DuckDuckGo alone.
+The target domain can also be supplied through the CLI configuration supported by the application.
 
-## Step-by-Step First Run
+### LLM
 
-Copy-paste these commands in order. Linux/macOS assumed; adapt paths for Windows.
+| Variable | Required | Purpose |
+|---|---|---|
+| `OMNIROUTE_BASE_URL` | Yes in production | OpenAI-compatible LLM endpoint |
+| `OMNIROUTE_MODEL` | Yes in production | Model name sent to the endpoint |
+
+### Search
+
+| Variable | Required | Purpose |
+|---|---|---|
+| None | No | DuckDuckGo can operate without credentials |
+| `GOOGLE_API_KEY` | Optional | Google Custom Search API credential |
+| `GOOGLE_CSE_ID` | Optional | Google Custom Search Engine ID |
+| `BING_API_KEY` | Optional / legacy | Legacy Bing API path; normal Bing search uses browser rendering |
+
+---
+
+## Installation
 
 ```bash
-# 1. Get the project
-git clone <repository-url> power_win_content
-cd power_win_content
+git clone <repository-url> content-intelligence-engine
+cd content-intelligence-engine
 
-# 2. Create and activate a virtual environment
 python3 -m venv venv
 source venv/bin/activate
 
-# 3. Install the project and dependencies
 pip install -e .
-
-# 4. Install the Playwright Chromium browser
 playwright install chromium
-
-# 5. Create your .env file (placeholders shown — use your own values)
-cat > .env << 'EOF'
-OMNIROUTE_BASE_URL=https://llm.example.com/v1
-OMNIROUTE_MODEL=gpt-4o
-# Optional Google Custom Search:
-# GOOGLE_API_KEY=your-google-api-key
-# GOOGLE_CSE_ID=your-search-engine-id
-EOF
-
-# 6. Run the test suite (should pass fully)
-venv/bin/pytest tests
-
-# 7. Generate an article
-venv/bin/python -m power_win_content.main "How We Evaluate Online Casinos"
 ```
 
-When the run finishes, the DOCX path is printed under `[SUCCESS] DOCX Generation ...`. Files land in:
+Configure `.env` with the target and LLM settings.
+
+Example:
+
+```text
+TARGET_BRAND=Example
+TARGET_DOMAIN=example.com
+TARGET_FIRST_PARTY_SITEMAPS=https://example.com/sitemap.xml
+
+OMNIROUTE_BASE_URL=https://llm.example.com/v1
+OMNIROUTE_MODEL=your-model
+```
+
+Run tests:
 
 ```bash
-ls output/
+venv/bin/pytest tests
 ```
 
-## How to Generate an Article
+---
 
-Interactive mode (prompts for the topic):
+## Running the Engine
+
+The application accepts a topic and uses the configured target domain/brand.
+
+```bash
+venv/bin/python -m power_win_content.main "Your Article Topic"
+```
+
+Interactive mode:
 
 ```bash
 venv/bin/python -m power_win_content.main
 ```
 
-Command-line topic:
+Debug mode:
 
 ```bash
-venv/bin/python -m power_win_content.main "How We Evaluate Online Casinos: Power.win Editorial & Review Methodology"
+venv/bin/python -m power_win_content.main --debug "Your Article Topic"
 ```
 
-The generated article is **not** printed to the terminal. Only the DOCX file path is displayed.
+The generated article is written as a DOCX under `output/`.
 
-## How Competitor Content Gap Analysis Works
+---
 
-1. Search engines are queried for the topic.
-2. Candidate URLs are filtered (power.win itself, social media, and search-engine domains are excluded).
-3. Top candidate pages are fetched.
-4. An LLM extracts each page's coverage: headings, questions answered, entities, statistics, sections, angles.
-5. Coverage across competitors is compared to produce gap lists: missing topics, questions, entities, comparisons, statistics, user concerns, recommended angles, and topics competitors cover that ours does not.
-6. Gaps flow into the strategy brief and influence heading structure and editorial angles.
+## Competitor Market Research
 
-**Gaps are planning intelligence, not verified facts.** They describe what competitors cover — not whether those claims are true.
+Competitor research is not simply a list of pages returned by a search engine. The intended process is:
 
-## How Research Works
+```text
+Topic
+  |
+  v
+Multi-engine discovery
+  |
+  v
+Candidate pages
+  |
+  v
+Relevance / competitor filtering
+  |
+  v
+Fetch competitor pages
+  |
+  v
+Extract structured coverage
+  |
+  v
+Build market coverage view
+  |
+  v
+Determine topic coverage status
+  |
+  +-----------------------------+
+  |                             |
+  v                             v
+FOUND / PARTIAL             NOT FOUND
+  |                             |
+  v                             v
+Gap Analysis               Whitespace
+```
 
-1. An LLM drafts a small research plan (up to 3 questions). If planning fails/times out, a deterministic fallback plan is used and the phase is marked DEGRADED.
-2. First-party sources are discovered from power.win sitemaps; external sources come from multi-engine search.
-3. Pages are fetched over HTTP first, with a Playwright-rendered fallback for JavaScript-heavy sites. Failed URLs are cached and skipped.
-4. An LLM extracts claims with evidence snippets and classifies each claim: `verified`, `partially_supported`, `unsupported`, `conflicting`, or `uncertain`.
-5. Sources that block automation (HTTP 403), render empty SPA shells, time out, or contain insufficient content are recorded as **research gaps** — the pipeline continues without them.
-6. Execution is bounded (~55 s wall clock, max ~12 sources) so research always terminates.
+A competitor is useful only when its page meaningfully addresses the requested topic. A search result merely mentioning the topic is not sufficient.
 
-## How Search Provider Fallback Works
+### Target-domain exclusion
 
-Order per query:
+The configured target domain and its configured first-party domains are excluded from competitor discovery. This is intentionally domain-independent; the engine does not contain a special `power.win` competitor exclusion rule.
 
-1. **DuckDuckGo** — always queried; HTML scraping, no credentials needed.
-2. **Google** — if `GOOGLE_API_KEY` + `GOOGLE_CSE_ID` are set, the Custom Search API is called. Valid results end here (Playwright is not invoked). On missing credentials, HTTP errors, timeouts, or empty responses, the Playwright browser fallback renders google.com/search.
-3. **Bing** — the public Bing Search API was retired (2025-08-11), so Playwright rendering of bing.com/search is the normal path. A legacy API attempt happens only if `BING_API_KEY` is set.
+### Competitor coverage
 
-Then:
+The long-term target is a structured coverage model rather than relying entirely on an LLM to infer gaps from prose:
 
-- Results from all providers are merged, normalized (lowercase scheme/host, fragments/trailing slashes stripped), and deduplicated — the same URL appears once regardless of how many providers returned it.
-- Limits: 10 results per provider, 15 combined.
-- Each result keeps its origin in `Source.provider` (`duckduckgo`, `google_api`, `google_playwright`, `bing_api`, `bing_playwright`).
-- If any single provider fails or throws, the others still run. Search never aborts the pipeline.
+```text
+                    Competitor A  B  C  D  E
+Topic / subtopic          yes     yes no yes no
+Question                  yes     no  no yes no
+Entity                    yes     yes yes no no
+Comparison                no      yes no  no yes
+Statistic                 yes     no  no  no no
+```
 
-**CAPTCHA/challenge policy:** when Google or Bing serve a CAPTCHA, consent wall, or block page instead of results, the application detects it, records nothing, and returns no results for that provider. It does **not** solve, bypass, or circumvent CAPTCHAs, anti-bot systems, logins, or access controls of any kind. In practice this means browser-based Google/Bing search can return zero results on challenged queries; configured APIs and DuckDuckGo remain the reliable paths.
+This allows the system to distinguish common market coverage from under-covered and missing topics.
 
-## Understanding SUCCESS / DEGRADED / FAILED
+---
 
-Every phase reports one status:
+## Case 1 — Competitive Content Gap
 
-| Status | Meaning | Examples |
-|---|---|---|
-| **SUCCESS** | Phase produced expected results | Evidence extracted, competitors analyzed, DOCX written |
-| **DEGRADED** | Phase completed with partial/limited results; pipeline continues | Fallback research plan used; zero competitor sources found; strategy fell back to default values; limited evidence collected |
-| **FAILED** | Phase could not produce usable output | Strategy brief missing; writer produced no text; DOCX could not be written |
+When meaningful competitor coverage exists, the engine should identify opportunities such as:
 
-Overall pipeline status equals the worst phase status. A DEGRADED result is not a crash — it means some capability was unavailable and the output has known holes. Review degraded output extra carefully before publication.
+- topics competitors omit
+- questions competitors fail to answer
+- entities competitors miss
+- comparisons that would improve decision-making
+- statistics or evidence opportunities
+- user concerns that are poorly addressed
+- weak, shallow, or repetitive angles
+- useful differentiation opportunities
+
+The objective is not to copy competitors. It is to understand the market and produce a more useful, authoritative, differentiated article.
+
+Competitor gaps are **planning intelligence**, not proof that a competitor's claims are true.
+
+---
+
+## Case 2 — Market Whitespace
+
+When sufficient research shows that meaningful competitor coverage does not exist, the engine must switch from competitive-gap analysis to whitespace analysis.
+
+The system should then:
+
+1. Record that the topic is currently underserved/not meaningfully covered.
+2. Record the evidence and limitations supporting that conclusion.
+3. Research the topic independently using appropriate authoritative sources.
+4. Determine search intent and user questions.
+5. Build the SEO/AIO/GEO strategy from the topic itself rather than invented competitor weaknesses.
+6. Generate the article.
+
+A search failure, fetch failure, CAPTCHA, API outage, or insufficient sample must **never** be represented as confirmed market whitespace.
+
+---
+
+## SEO / AIO / GEO Strategy
+
+The strategy layer translates research and market intelligence into an article plan.
+
+### SEO
+
+Examples of strategy inputs:
+
+- search intent
+- primary keyword
+- secondary keywords
+- semantic coverage
+- heading structure
+- title/meta considerations
+- useful internal content opportunities
+
+### AIO
+
+Examples of strategy inputs:
+
+- questions requiring direct answers
+- concise definitions
+- answer-first structures
+- explicit question/answer coverage
+- factual clarity
+
+### GEO
+
+Examples of strategy inputs:
+
+- important entities
+- authoritative sources
+- entity relationships
+- contextual completeness
+- information useful to generative search systems
+
+The optimization layers are strategy components. They should not be tightly coupled to any particular client or industry.
+
+---
+
+## Research and Evidence
+
+The research layer supports the content strategy with source-backed information.
+
+Current capabilities include:
+
+- first-party sitemap discovery
+- multi-provider web search
+- HTTP webpage fetching
+- Playwright fallback for JavaScript-heavy pages
+- claim/evidence extraction through the LLM
+- research-gap recording
+- claim status classification
+
+The engine records phase degradation when research is incomplete rather than pretending that missing sources were successfully retrieved.
+
+### Evidence integrity requirement
+
+LLM-generated excerpts are proposed evidence, not automatically trustworthy evidence. A production-quality implementation must deterministically verify that an extracted excerpt actually occurs in the fetched source content before treating it as verified provenance.
+
+This is an engineering invariant and must not depend solely on an LLM prompt.
+
+---
+
+## Search Provider Behaviour
+
+Current search infrastructure supports multiple providers and fallbacks.
+
+General flow:
+
+```text
+Query
+ |
+ +--> DuckDuckGo
+ |
+ +--> Google API (when configured)
+ |       |
+ |       +--> browser fallback when required
+ |
+ +--> Bing browser search
+         |
+         +--> legacy API path when configured
+ |
+ v
+Normalize
+ |
+ v
+Deduplicate
+ |
+ v
+Candidate URLs
+```
+
+Provider failures should be isolated so that one failed provider does not automatically invalidate all available search data.
+
+CAPTCHA/challenge pages are treated as unavailable results. The application does not bypass CAPTCHAs, anti-bot systems, authentication, or access controls.
+
+---
+
+## Phase Status
+
+Each major phase reports:
+
+| Status | Meaning |
+|---|---|
+| `SUCCESS` | Expected output was produced with sufficient data |
+| `DEGRADED` | The phase completed with known limitations or partial data |
+| `FAILED` | The phase could not produce usable output |
+
+A future market-coverage model should additionally expose a **coverage assessment** separately from infrastructure phase status. For example, `TOPIC_NOT_FOUND` is a business/research conclusion, while `SEARCH_FAILED` is an infrastructure outcome.
+
+These must never be conflated.
+
+---
 
 ## DOCX Output
 
-- Location: `output/` directory (created automatically).
-- Filename: the title slugified — lowercased, non-alphanumeric characters replaced with hyphens, duplicates collapsed. Example: `"How We Evaluate Online Casinos"` → `how-we-evaluate-online-casinos.docx`.
-- Title handling: the user's original title becomes the document Heading 0 and is never replaced. The SEO "recommended title" inside the strategy brief is a suggestion only.
-- Contents: Word headings (H1–H6 from Markdown `#` levels), paragraphs, bullet and numbered lists, bold/italic inline formatting, inline code in Courier New, blockquotes.
-- Appendix: when competitor analysis succeeded, a final page titled "Appendix: Competitor Content Gap" lists analyzed competitors and all identified gaps. It is explicitly marked as internal editorial planning material.
+Generated documents are placed in `output/`.
 
-## Debug Mode
+The output contains the article draft with Word formatting for headings, paragraphs, lists, emphasis, and other supported Markdown structures. Where competitor analysis is available, internal competitor-gap planning information may be included as an appendix.
 
-```bash
-venv/bin/python -m power_win_content.main --debug "Your Topic"
-```
+The original user-supplied topic/title remains the article title. An LLM-recommended SEO title is advisory and must not silently replace the user's requested title.
 
-Normal mode sets logging to WARNING and silences research/fetch/LLM/competitor/strategy loggers plus `httpx`/`httpcore`, keeping the terminal clean (spinners, phase lines, tables).
-
-`--debug` enables DEBUG-level logging: search queries and per-provider results, HTTP fetch attempts and status codes, Playwright operations, LLM request failures, strategy parsing steps. Use it to diagnose why sources or providers returned nothing.
+---
 
 ## Testing
+
+Run the automated suite with:
 
 ```bash
 venv/bin/pytest tests
 ```
 
-Current verified state: **195 passed, 0 failed**.
+Tests should cover both ordinary functionality and the system's critical invariants, including:
 
-Coverage highlights: multi-provider search and fallback ordering, API-success-skips-Playwright assertions, CAPTCHA/challenge detection and graceful empty results, cross-provider deduplication, provider failure isolation, Playwright context lifecycle and cleanup, research plan fallback, PhaseStatus propagation (research/competitor/strategy/writing/DOCX), Markdown→DOCX conversion, LLM client null-safety, UI display functions.
+- target-domain normalization
+- first-party URL detection
+- competitor target-domain exclusion
+- search-provider fallback and isolation
+- URL normalization/deduplication
+- research fallback behaviour
+- phase-status propagation
+- competitor coverage extraction
+- topic coverage classification
+- Case 1 vs Case 2 routing
+- search failure vs topic-not-found distinction
+- evidence excerpt verification
+- source provenance
+- strategy generation
+- writing failure handling
+- DOCX generation
 
-## Live Smoke Tests
+Live smoke tests under `scripts/` may hit external web services and are separate from deterministic unit tests.
 
-Developer utilities live in `scripts/` and are not required for production use:
+---
 
-- `scripts/test_e2e.py` — end-to-end pipeline exercise
-- `scripts/test_live_research.py` — research-layer exercise against live web sources
-- `scripts/browser_fetch_demo.py` — single-page fetch demonstration
+## Production Engineering Principles
 
-Run them only when you intend to hit live network services.
+The following principles govern further development.
 
-## Troubleshooting
+### 1. Domain independence
 
-| Problem | Likely Cause | Solution |
-|---|---|---|
-| Writing phase fails / pipeline ends without DOCX | LLM endpoint unreachable, slow, or returning empty content | Verify `OMNIROUTE_BASE_URL` reachability and model name; retry; check with `--debug` |
-| Strategy/research marked DEGRADED | Planning or parsing LLM call timed out; fallbacks used | Expected under LLM instability; rerun, or check endpoint health |
-| Google API results absent | Credentials missing — or the API key's cloud project lacks Custom Search JSON API enabled (observed as HTTP 403 "project does not have access") | Set both `GOOGLE_API_KEY` and `GOOGLE_CSE_ID`; enable the Custom Search JSON API for the key's project |
-| Google/Bing Playwright returns zero results | CAPTCHA or challenge page detected | Expected behaviour; protections are never bypassed. Rely on DuckDuckGo and/or configured APIs |
-| Bing API ignored entirely | API retired 2025-08-11; Playwright is the supported path | Do not obtain a new Bing key; configure Google instead if you need a second API provider |
-| Many HTTP 403 fetch warnings visible | Running with `--debug` (normal mode suppresses them) | None needed; blocked sites are recorded as research gaps automatically |
-| SPA pages yield no evidence | Page requires heavy JS hydration; renderer exited early or content stayed empty | Recorded as research gaps; try a different topic phrasing |
-| `ModuleNotFoundError: playwright` | Dependencies not installed | `pip install -e .` inside the activated venv |
-| `playwright install` fails | Missing system libraries for Chromium | Install OS dependencies (e.g. `playwright install-deps chromium` on Debian/Ubuntu) and retry |
-| `Executable doesn't exist` from Playwright | Chromium browser not installed | `playwright install chromium` |
-| Zero research facts overall | All providers blocked AND LLM unavailable, or topic too narrow | Check LLM health first, then rerun; inspect with `--debug` |
-| DOCX not created despite writing success | `output/` not writable | Fix permissions on the output directory |
-| Empty topic prompt loops | Blank input at interactive prompt | Type a non-empty title; Ctrl+C cancels cleanly |
+Core code must not contain assumptions about Power.win or any other single client.
 
-## Security / Secrets
+### 2. Market intelligence before writing
 
-- Secrets belong in `.env` only. `.env` is gitignored — never commit it.
-- Never hardcode keys in source, tests, scripts, or documentation.
-- Never print secrets; error paths report status codes and safe messages only.
-- The application never bypasses CAPTCHA, anti-bot measures, authentication, or access controls, and respects provider rate limits and robots/access restrictions.
-- Generated content is a draft: human editorial review and fact verification are mandatory before publication.
+The article should be generated from structured market/topic intelligence, not simply from a search result list.
 
-## Production Deployment Checklist
+### 3. Case 1 and Case 2 are different products paths
 
-- [ ] Python >= 3.13 available on the host
-- [ ] Virtual environment created; `pip install -e .` completed
-- [ ] `playwright install chromium` completed (plus OS deps if headless Linux)
-- [ ] `.env` present with working `OMNIROUTE_BASE_URL` / `OMNIROUTE_MODEL`
-- [ ] LLM endpoint reachable from the host
-- [ ] Optional: `GOOGLE_API_KEY` + `GOOGLE_CSE_ID` configured and the Custom Search JSON API enabled for the key's project
-- [ ] `venv/bin/pytest tests` fully green on the host
-- [ ] `output/` directory writable by the runtime user
-- [ ] `.env` excluded from backups/images where feasible; no secrets in logs
-- [ ] Editorial review process defined for generated documents
+Competitive gaps and market whitespace must remain separate concepts.
 
-## Future Extension Points
+### 4. Search failure is not market whitespace
 
-- Additional search providers (pluggable provider list in `web_search.py`)
-- Persistent caching of search results and fetched pages
-- Source-quality scoring ahead of claim extraction
-- Richer competitor comparison views
-- CMS/publication integrations consuming the generated DOCX or Markdown
-- Editorial approval workflow states around `PhaseStatus`
-- Multilingual content support
+Insufficient research cannot be presented as evidence that competitors do not cover a topic.
+
+### 5. Deterministic validation at trust boundaries
+
+LLM output may propose claims, excerpts, classifications, and plans, but critical invariants must be validated by software.
+
+### 6. Preserve provenance
+
+Where factual claims influence an article, the system should preserve the relationship:
+
+```text
+Article Claim
+    |
+    v
+Research Claim
+    |
+    v
+Evidence
+    |
+    v
+Source
+    |
+    v
+Source URL
+```
+
+### 7. Human editorial control
+
+The system produces an editorial draft, not an autonomous publishing decision.
+
+---
+
+## Current Refactoring State
+
+The first domain-independence refactor has been started and the active pipeline now accepts a target configuration instead of assuming Power.win as the target.
+
+Completed in the current refactor:
+
+- domain-aware `ClientConfig`
+- configurable target brand/domain
+- configurable first-party domains and sitemaps
+- domain-aware target-domain exclusion in competitor discovery
+- domain-independent research/strategy/writer facades
+- configurable target-related environment variables
+- project/distribution identity moved toward `content-intelligence-engine`
+
+Remaining cleanup is intentionally separate from this first milestone:
+
+- remove the historical `power_win_content` Python package name
+- remove remaining legacy Power.win terminology from compatibility models/APIs
+- make Case 1 / Case 2 topic-coverage assessment a first-class competitor-analysis result
+- implement deterministic evidence excerpt verification
+- strengthen automated coverage/provenance tests
+
+**Do not add new major features before the domain-independence boundary and the Case 1/Case 2 market-coverage model are stable.**
+
+---
+
+## Development Direction
+
+The intended development order is:
+
+```text
+1. Domain Independence
+       |
+       v
+2. Market Coverage Assessment
+       |
+       +--> Case 1: Competitive Gap
+       |
+       +--> Case 2: Market Whitespace
+       |
+       v
+3. Evidence / Provenance Hardening
+       |
+       v
+4. SEO / AIO / GEO Strategy Refinement
+       |
+       v
+5. Content Quality / Writing Refinement
+       |
+       v
+6. Production Observability, Cost and Reliability
+```
+
+The system should evolve from a Power.win-specific content generator into a reusable **content intelligence engine** with Power.win as one client configuration.
