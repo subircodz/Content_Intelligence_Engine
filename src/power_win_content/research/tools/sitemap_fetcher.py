@@ -2,11 +2,12 @@ import logging
 import re
 from dataclasses import dataclass
 from typing import Optional
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urlparse
 
 import httpx
 from bs4 import BeautifulSoup
 
+from power_win_content.client import ClientConfig
 from power_win_content.research.models import Source, SourceType
 
 logger = logging.getLogger(__name__)
@@ -22,23 +23,17 @@ class SitemapEntry:
 
 
 class SitemapFetcher:
-    """
-    Fetches and parses sitemap.xml files for first-party source discovery.
-    Supports power.win, docs.power.win, and blog.power.win ecosystems.
-    """
-
-    # Known first-party sitemap URLs
-    KNOWN_SITEMAPS = {
-        "power.win": "https://power.win/sitemap.xml",
-        "docs.power.win": "https://docs.power.win/sitemap.xml",
-        "blog.power.win": "https://blog.power.win/sitemap.xml",
-    }
+    """Discover first-party sources from sitemaps configured for the target site."""
 
     def __init__(
         self,
+        client_config: Optional[ClientConfig] = None,
+        sitemap_urls: Optional[list[str]] = None,
         timeout: float = 15.0,
-        user_agent: str = "PowerWinContentResearcher/1.0 (+https://power.win)",
+        user_agent: str = "ContentIntelligenceEngine/1.0",
     ) -> None:
+        self.client_config = client_config
+        self.sitemap_urls = tuple(sitemap_urls or (client_config.first_party_sitemaps if client_config else ()))
         self.timeout = timeout
         self.user_agent = user_agent
         self._client: Optional[httpx.Client] = None
@@ -53,162 +48,86 @@ class SitemapFetcher:
         return self._client
 
     def fetch_sitemap(self, sitemap_url: str) -> list[SitemapEntry]:
-        """Fetch and parse a sitemap.xml, returning list of SitemapEntry objects."""
         try:
-            client = self._get_client()
-            response = client.get(sitemap_url)
+            response = self._get_client().get(sitemap_url)
             response.raise_for_status()
-
             return self._parse_sitemap(response.text, sitemap_url)
-
         except httpx.TimeoutException:
             logger.warning("Timeout fetching sitemap: %s", sitemap_url)
-            return []
-        except httpx.HTTPStatusError as e:
-            logger.warning("HTTP error fetching sitemap %s: %s", sitemap_url, e.response.status_code)
-            return []
-        except httpx.RequestError as e:
-            logger.warning("Request error fetching sitemap %s: %s", sitemap_url, e)
-            return []
-        except Exception as e:
-            logger.warning("Unexpected error fetching sitemap %s: %s", sitemap_url, e)
-            return []
+        except httpx.HTTPStatusError as exc:
+            logger.warning("HTTP error fetching sitemap %s: %s", sitemap_url, exc.response.status_code)
+        except httpx.RequestError as exc:
+            logger.warning("Request error fetching sitemap %s: %s", sitemap_url, exc)
+        except Exception as exc:
+            logger.warning("Unexpected error fetching sitemap %s: %s", sitemap_url, exc)
+        return []
 
     def _parse_sitemap(self, xml_content: str, base_url: str) -> list[SitemapEntry]:
-        """Parse sitemap XML content into SitemapEntry objects."""
-        entries = []
+        entries: list[SitemapEntry] = []
         try:
             soup = BeautifulSoup(xml_content, "xml")
-
-            # Handle both regular sitemaps and sitemap indexes
-            # Regular sitemap has <url> elements
-            urls = soup.find_all("url")
-
-            for url_elem in urls:
+            for url_elem in soup.find_all("url"):
                 loc = url_elem.find("loc")
                 if not loc or not loc.text:
                     continue
+                entries.append(SitemapEntry(
+                    url=loc.text.strip(),
+                    lastmod=(url_elem.find("lastmod").text.strip() if url_elem.find("lastmod") else None),
+                    changefreq=(url_elem.find("changefreq").text.strip() if url_elem.find("changefreq") else None),
+                    priority=(url_elem.find("priority").text.strip() if url_elem.find("priority") else None),
+                ))
 
-                url = loc.text.strip()
-                lastmod_elem = url_elem.find("lastmod")
-                changefreq_elem = url_elem.find("changefreq")
-                priority_elem = url_elem.find("priority")
-
-                entry = SitemapEntry(
-                    url=url,
-                    lastmod=lastmod_elem.text.strip() if lastmod_elem and lastmod_elem.text else None,
-                    changefreq=changefreq_elem.text.strip() if changefreq_elem and changefreq_elem.text else None,
-                    priority=priority_elem.text.strip() if priority_elem and priority_elem.text else None,
-                )
-                entries.append(entry)
-
-            # Check for sitemap index (sitemap contains other sitemaps)
-            sitemap_index = soup.find_all("sitemap")
-            for sitemap_elem in sitemap_index:
+            for sitemap_elem in soup.find_all("sitemap"):
                 loc = sitemap_elem.find("loc")
                 if loc and loc.text:
-                    # Recursively fetch sub-sitemaps
-                    sub_entries = self.fetch_sitemap(loc.text.strip())
-                    entries.extend(sub_entries)
-
-        except Exception as e:
-            logger.warning("Error parsing sitemap: %s", e)
-
+                    entries.extend(self.fetch_sitemap(loc.text.strip()))
+        except Exception as exc:
+            logger.warning("Error parsing sitemap: %s", exc)
         return entries
 
     def discover_first_party_sources(self, topic: str = "") -> list[Source]:
-        """
-        Discover first-party Power.win sources from sitemaps.
-        Returns Source objects for all discovered URLs.
-        """
-        all_sources = []
+        if not self.client_config or not self.sitemap_urls:
+            return []
 
-        # Fetch all known sitemaps
-        for domain, sitemap_url in self.KNOWN_SITEMAPS.items():
-            logger.info("Fetching sitemap for %s: %s", domain, sitemap_url)
-            entries = self.fetch_sitemap(sitemap_url)
-
-            for entry in entries:
-                source = self._entry_to_source(entry, domain)
+        all_sources: list[Source] = []
+        for sitemap_url in self.sitemap_urls:
+            for entry in self.fetch_sitemap(sitemap_url):
+                source = self._entry_to_source(entry)
                 if source:
                     all_sources.append(source)
 
-        # Filter by topic if provided
         if topic:
             all_sources = self._filter_by_topic(all_sources, topic)
-
-        logger.info("Discovered %d first-party sources", len(all_sources))
         return all_sources
 
-    def _entry_to_source(self, entry: SitemapEntry, domain: str) -> Optional[Source]:
-        """Convert a SitemapEntry to a Source object."""
+    def _entry_to_source(self, entry: SitemapEntry) -> Optional[Source]:
         try:
             parsed = urlparse(entry.url)
-            if not parsed.netloc:
+            if not parsed.netloc or not self.client_config.is_first_party_url(entry.url):
                 return None
-
-            # Classify source type - all power.win ecosystem = FIRST_PARTY
-            source_type = self._classify_first_party_domain(parsed.netloc)
-
-            # Create descriptive name
+            host = parsed.hostname or self.client_config.domain
             path = parsed.path.strip("/")
-            if path:
-                name = f"{domain} - {path.replace('/', ' > ')}"
-            else:
-                name = f"{domain} - Home"
-
-            source = Source(
+            name = f"{host} - {path.replace('/', ' > ')}" if path else f"{host} - Home"
+            return Source(
                 name=name,
                 url=entry.url,
-                source_type=source_type,
-                title=f"{domain} - {path}" if path else f"{domain} Homepage",
+                source_type=SourceType.FIRST_PARTY,
+                title=f"{host} - {path}" if path else f"{host} Homepage",
                 notes=f"Discovered via sitemap: {entry.lastmod}" if entry.lastmod else "Discovered via sitemap",
             )
-            return source
-
-        except Exception as e:
-            logger.debug("Error converting sitemap entry to source: %s", e)
+        except Exception as exc:
+            logger.debug("Error converting sitemap entry to source: %s", exc)
             return None
 
-    def _classify_first_party_domain(self, netloc: str) -> SourceType:
-        """Classify power.win ecosystem domains as FIRST_PARTY."""
-        netloc_lower = netloc.lower()
-
-        if "power.win" in netloc_lower:
-            return SourceType.FIRST_PARTY
-
-        return SourceType.UNKNOWN
-
     def _filter_by_topic(self, sources: list[Source], topic: str) -> list[Source]:
-        """Filter sources by relevance to topic keywords.
-
-        Uses a lenient approach - returns all sources if no strong match,
-        to avoid filtering out potentially relevant pages.
-        """
-        topic_lower = topic.lower()
-        topic_keywords = set(re.findall(r'\w+', topic_lower))
-
-        # Remove very common words
-        stop_words = {"the", "and", "or", "how", "we", "to", "a", "of", "in", "on", "for", "with", "by", "is", "are", "our", "your", "their"}
-        topic_keywords = topic_keywords - stop_words
-
-        if not topic_keywords:
-            return sources  # No meaningful keywords, return all
-
-        filtered = []
-        for source in sources:
-            source_text = f"{source.name} {source.title or ''} {source.url}".lower()
-            if any(keyword in source_text for keyword in topic_keywords):
-                filtered.append(source)
-
-        # If filter removes too many, return all (lenient fallback)
-        if len(filtered) < max(3, len(sources) * 0.1):
+        keywords = set(re.findall(r"\w+", topic.lower()))
+        keywords -= {"the", "and", "or", "how", "we", "to", "a", "of", "in", "on", "for", "with", "by", "is", "are", "our", "your", "their"}
+        if not keywords:
             return sources
-
-        return filtered
+        filtered = [s for s in sources if any(k in f"{s.name} {s.title or ''} {s.url}".lower() for k in keywords)]
+        return filtered if len(filtered) >= max(3, len(sources) * 0.1) else sources
 
     def close(self) -> None:
-        """Close the underlying HTTP client."""
         if self._client is not None:
             self._client.close()
             self._client = None
