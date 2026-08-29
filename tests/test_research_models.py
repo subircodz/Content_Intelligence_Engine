@@ -11,12 +11,22 @@ def test_source_creation():
     source = Source(name="Example", url="https://example.com", source_type=SourceType.FIRST_PARTY)
     assert source.source_type == SourceType.FIRST_PARTY
     assert str(source.url) == "https://example.com/"
+    assert source.checked_date.tzinfo is not None
 
 
 def test_evidence_and_claim():
     source = Source(name="Example", source_type=SourceType.PRIMARY)
-    claim = Claim(text="A verified claim", status=ClaimStatus.VERIFIED, evidence=[Evidence(source=source, excerpt="Exact source text")])
+    evidence = Evidence(
+        source=source,
+        excerpt="Exact source text",
+        content_sha256="abc123",
+        excerpt_verified=True,
+    )
+    claim = Claim(text="A verified claim", status=ClaimStatus.VERIFIED, evidence=[evidence])
     assert claim.evidence[0].source.name == "Example"
+    assert claim.evidence[0].excerpt_verified is True
+    assert claim.evidence[0].content_sha256 == "abc123"
+    assert claim.evidence[0].retrieved_at.tzinfo is not None
 
 
 def test_research_question_first_party_flag():
