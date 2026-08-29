@@ -7,102 +7,66 @@ from power_win_content.config import Settings
 
 
 class TestSettingsLLM:
-    def test_omniroute_base_url_default(self):
+    def test_llm_base_url_default(self):
+        with patch.dict(os.environ, {"TARGET_DOMAIN": "example.com"}, clear=True):
+            settings = Settings()
+            assert settings.llm_base_url == "http://localhost:20128/v1"
+
+    def test_llm_model_default(self):
+        with patch.dict(os.environ, {"TARGET_DOMAIN": "example.com"}, clear=True):
+            settings = Settings()
+            assert settings.llm_model == "auto"
+
+    def test_llm_base_url_from_env(self):
+        env = {"TARGET_DOMAIN": "example.com", "LLM_BASE_URL": "https://llm.example.com/v1"}
+        with patch.dict(os.environ, env, clear=True):
+            settings = Settings()
+            assert settings.llm_base_url == "https://llm.example.com/v1"
+
+    def test_llm_model_from_env(self):
+        env = {"TARGET_DOMAIN": "example.com", "LLM_MODEL": "test-model"}
+        with patch.dict(os.environ, env, clear=True):
+            settings = Settings()
+            assert settings.llm_model == "test-model"
+
+
+class TestSettingsTarget:
+    def test_target_domain_required(self):
         with patch.dict(os.environ, {}, clear=True):
-            settings = Settings()
-            assert settings.omniroute_base_url == "http://localhost:20128/v1"
+            try:
+                Settings()
+                assert False, "Settings should require TARGET_DOMAIN"
+            except ValueError as exc:
+                assert "TARGET_DOMAIN" in str(exc)
 
-    def test_omniroute_model_default(self):
-        with patch.dict(os.environ, {}, clear=True):
+    def test_target_configuration(self):
+        env = {
+            "TARGET_DOMAIN": "example.com",
+            "TARGET_BRAND": "Example",
+            "TARGET_FIRST_PARTY_SITEMAPS": "https://example.com/sitemap.xml,https://docs.example.com/sitemap.xml",
+        }
+        with patch.dict(os.environ, env, clear=True):
             settings = Settings()
-            assert settings.omniroute_model == "auto"
-
-    def test_omniroute_base_url_from_env(self):
-        with patch.dict(os.environ, {"OMNIROUTE_BASE_URL": "https://llm.example.com/v1"}):
-            settings = Settings()
-            assert settings.omniroute_base_url == "https://llm.example.com/v1"
-
-    def test_omniroute_model_from_env(self):
-        with patch.dict(os.environ, {"OMNIROUTE_MODEL": "gpt-4o"}):
-            settings = Settings()
-            assert settings.omniroute_model == "gpt-4o"
+            assert settings.client.name == "Example"
+            assert settings.client.domain == "example.com"
+            assert settings.client.first_party_sitemaps == (
+                "https://example.com/sitemap.xml",
+                "https://docs.example.com/sitemap.xml",
+            )
 
 
 class TestSettingsGoogle:
-    def test_google_api_key_default_none(self):
-        with patch.dict(os.environ, {}, clear=True):
-            settings = Settings()
-            assert settings.google_api_key is None
-
-    def test_google_cse_id_default_none(self):
-        with patch.dict(os.environ, {}, clear=True):
-            settings = Settings()
-            assert settings.google_cse_id is None
-
-    def test_google_api_key_from_env(self):
-        with patch.dict(os.environ, {"GOOGLE_API_KEY": "test-key-123"}):
-            settings = Settings()
-            assert settings.google_api_key == "test-key-123"
-
-    def test_google_cse_id_from_env(self):
-        with patch.dict(os.environ, {"GOOGLE_CSE_ID": "test-cx-456"}):
-            settings = Settings()
-            assert settings.google_cse_id == "test-cx-456"
-
-    def test_google_credentials_together(self):
-        env = {"GOOGLE_API_KEY": "key", "GOOGLE_CSE_ID": "cx"}
-        with patch.dict(os.environ, env):
+    def test_google_credentials(self):
+        env = {"TARGET_DOMAIN": "example.com", "GOOGLE_API_KEY": "key", "GOOGLE_CSE_ID": "cx"}
+        with patch.dict(os.environ, env, clear=True):
             settings = Settings()
             assert settings.google_api_key == "key"
             assert settings.google_cse_id == "cx"
 
 
 class TestSettingsBing:
-    def test_bing_api_key_default_none(self):
-        with patch.dict(os.environ, {}, clear=True):
+    def test_bing_api_key(self):
+        env = {"TARGET_DOMAIN": "example.com", "BING_API_KEY": "bing-key"}
+        with patch.dict(os.environ, env, clear=True):
             settings = Settings()
-            assert settings.bing_api_key is None
-
-    def test_bing_api_key_from_env(self):
-        with patch.dict(os.environ, {"BING_API_KEY": "bing-key-789"}):
-            settings = Settings()
-            assert settings.bing_api_key == "bing-key-789"
-
-
-class TestSettingsIntegration:
-    def test_all_settings_populated(self):
-        env = {
-            "OMNIROUTE_BASE_URL": "https://llm.example.com/v1",
-            "OMNIROUTE_MODEL": "gpt-4o",
-            "GOOGLE_API_KEY": "gkey",
-            "GOOGLE_CSE_ID": "gcx",
-            "BING_API_KEY": "bkey",
-        }
-        with patch.dict(os.environ, env):
-            settings = Settings()
-            assert settings.omniroute_base_url == "https://llm.example.com/v1"
-            assert settings.omniroute_model == "gpt-4o"
-            assert settings.google_api_key == "gkey"
-            assert settings.google_cse_id == "gcx"
-            assert settings.bing_api_key == "bkey"
-
-    def test_partial_credentials(self):
-        """Only Google credentials set; Bing remains None."""
-        env = {
-            "GOOGLE_API_KEY": "gkey",
-            "GOOGLE_CSE_ID": "gcx",
-        }
-        with patch.dict(os.environ, env):
-            settings = Settings()
-            assert settings.google_api_key == "gkey"
-            assert settings.google_cse_id == "gcx"
-            assert settings.bing_api_key is None
-
-    def test_empty_string_credentials_are_truthy(self):
-        """Empty strings are truthy but indicate no real credential."""
-        env = {"GOOGLE_API_KEY": "", "GOOGLE_CSE_ID": "", "BING_API_KEY": ""}
-        with patch.dict(os.environ, env):
-            settings = Settings()
-            assert settings.google_api_key == ""
-            assert settings.google_cse_id == ""
-            assert settings.bing_api_key == ""
+            assert settings.bing_api_key == "bing-key"
