@@ -1,12 +1,22 @@
-"""Discover and analyze competitor pages for content opportunity analysis."""
+"""Discover competitors and determine whether a topic is covered by the market."""
 
+import json
 import logging
 import re
 from typing import Optional
 from urllib.parse import urlparse
 
 from power_win_content.client import ClientConfig
-from power_win_content.competitors.models import CompetitorAnalysis, CompetitorSource, ContentGap
+from power_win_content.competitors.models import (
+    CompetitorAnalysis,
+    CompetitorSource,
+    ContentGap,
+    CoverageAssessment,
+    CoverageConfidence,
+    CoverageElement,
+    OpportunityType,
+    TopicCoverageStatus,
+)
 from power_win_content.llm.client import LLMClient
 from power_win_content.research.models import PhaseStatus
 from power_win_content.research.tools.web_fetcher import WebFetcher
@@ -50,6 +60,8 @@ def _topic_to_queries(topic: str) -> list[str]:
 
 
 class CompetitorAnalyzer:
+    """Build a market coverage assessment before asking for content gaps."""
+
     def __init__(
         self,
         llm_client: LLMClient,
@@ -65,11 +77,16 @@ class CompetitorAnalyzer:
         self.max_competitors = max_competitors
 
     def analyze(self, topic: str) -> tuple[CompetitorAnalysis, PhaseStatus]:
-        candidate_urls = self._discover_candidate_urls(topic)
+        queries = _topic_to_queries(topic)
+        candidate_urls, successful_queries = self._discover_candidate_urls(queries)
         unique_sources = self._select_unique_sources(candidate_urls)
         selected = unique_sources[: self.max_competitors]
 
         analysis = CompetitorAnalysis(topic=topic)
+        analysis.coverage.search_queries_attempted = len(queries)
+        analysis.coverage.search_queries_succeeded = successful_queries
+        analysis.coverage.candidate_pages_discovered = len(unique_sources)
+
         domains_seen: set[str] = set()
         llm_calls_used = 0
         llm_call_budget = self.max_competitors + 1
@@ -81,34 +98,48 @@ class CompetitorAnalyzer:
             domains_seen.add(domain)
             fetched_content = self._fetch_page(source.url)
             if llm_calls_used < llm_call_budget:
-                enriched = self._enrich_source_from_fetch(source, fetched_content)
+                enriched = self._enrich_source_from_fetch(source, fetched_content, topic)
                 llm_calls_used += 1
             else:
                 enriched = CompetitorSource(
-                    domain=domain, url=source.url, title=source.title,
-                    fetched_successfully=False, fetch_failure_reason="budget exceeded",
+                    domain=domain,
+                    url=source.url,
+                    title=source.title,
+                    fetched_successfully=False,
+                    fetch_failure_reason="analysis budget exceeded",
                 )
             analysis.analyzed_sources.append(enriched)
 
-        for source in analysis.analyzed_sources:
-            if source.fetched_successfully:
-                analysis.successfully_fetched += 1
-            else:
-                analysis.failures += 1
         analysis.domains_analyzed = len(analysis.analyzed_sources)
+        analysis.successfully_fetched = sum(1 for s in analysis.analyzed_sources if s.fetched_successfully)
+        analysis.failures = len(analysis.analyzed_sources) - analysis.successfully_fetched
+        analysis.coverage.successfully_analyzed = analysis.successfully_fetched
+        analysis.coverage.failed_analysis = analysis.failures
 
-        successful_sources = [s for s in analysis.analyzed_sources if s.fetched_successfully]
-        analysis.gaps = self._extract_gaps(topic, successful_sources)
+        relevant_sources = [
+            s for s in analysis.analyzed_sources
+            if s.fetched_successfully and s.coverage_scope in {"FULL", "PARTIAL"} and s.relevance_score >= 0.5
+        ]
+        analysis.coverage.relevant_pages_found = len(relevant_sources)
+        analysis.coverage.relevant_domains_found = len({s.domain for s in relevant_sources})
 
-        if analysis.domains_analyzed == 0 or analysis.failures > 0:
+        self._assess_coverage(analysis, relevant_sources, successful_queries)
+        analysis.gaps = self._extract_gaps(topic, relevant_sources, analysis.coverage)
+        analysis.coverage_elements = self._build_coverage_elements(relevant_sources)
+
+        if successful_queries == 0:
+            return analysis, PhaseStatus.FAILED
+        if analysis.failures > 0 or analysis.coverage.status == TopicCoverageStatus.INSUFFICIENT_DATA:
             return analysis, PhaseStatus.DEGRADED
         return analysis, PhaseStatus.SUCCESS
 
-    def _discover_candidate_urls(self, topic: str) -> list[CompetitorSource]:
+    def _discover_candidate_urls(self, queries: list[str]) -> tuple[list[CompetitorSource], int]:
         candidates: list[CompetitorSource] = []
-        for query in _topic_to_queries(topic):
+        successful_queries = 0
+        for query in queries:
             try:
                 sources = self.search_tool.search(query)
+                successful_queries += 1
             except Exception as exc:
                 logger.debug("Competitor search failed for query %r: %s", query, exc)
                 continue
@@ -119,19 +150,17 @@ class CompetitorAnalyzer:
                 candidates.append(CompetitorSource(
                     domain=domain or "unknown", url=str(source.url), title=source.title
                 ))
-        return candidates
+        return candidates, successful_queries
 
     def _select_unique_sources(self, candidates: list[CompetitorSource]) -> list[CompetitorSource]:
         seen_urls: set[str] = set()
         seen_domains: set[str] = set()
         selected: list[CompetitorSource] = []
         for source in candidates:
-            url = source.url
-            domain = source.domain
-            if url in seen_urls or domain in seen_domains:
+            if source.url in seen_urls or source.domain in seen_domains:
                 continue
-            seen_urls.add(url)
-            seen_domains.add(domain)
+            seen_urls.add(source.url)
+            seen_domains.add(source.domain)
             selected.append(source)
         return selected
 
@@ -143,23 +172,31 @@ class CompetitorAnalyzer:
             logger.debug("Competitor page fetch failed for %s: %s", url, exc)
             return None
 
-    def _enrich_source_from_fetch(self, source: CompetitorSource, content: Optional[str]) -> CompetitorSource:
+    def _enrich_source_from_fetch(
+        self,
+        source: CompetitorSource,
+        content: Optional[str],
+        topic: str,
+    ) -> CompetitorSource:
         if not content or not content.strip():
             source.fetched_successfully = False
             source.fetch_failure_reason = source.fetch_failure_reason or "no usable content"
             return source
         try:
-            response = self.llm_client.generate(self._build_analysis_prompt(content, source.title or source.domain))
-            parsed = self._parse_analysis_response(response)
+            response = self.llm_client.generate(self._build_analysis_prompt(content, source.title or source.domain, topic))
+            parsed = self._parse_json(response)
         except Exception as exc:
             logger.debug("Competitor LLM analysis failed for %s: %s", source.url, exc)
             source.fetched_successfully = False
             source.fetch_failure_reason = "LLM analysis failed"
             return source
         return CompetitorSource(
-            domain=source.domain, url=source.url,
+            domain=source.domain,
+            url=source.url,
             title=parsed.get("title") or source.title,
             search_intent=parsed.get("search_intent"),
+            coverage_scope=str(parsed.get("coverage_scope") or "NOT_RELEVANT").upper(),
+            relevance_score=self._bounded_score(parsed.get("relevance_score")),
             headings=self._clean_list(parsed.get("headings")),
             questions_answered=self._clean_list(parsed.get("questions_answered")),
             entities=self._clean_list(parsed.get("entities")),
@@ -170,32 +207,75 @@ class CompetitorAnalyzer:
             fetched_successfully=True,
         )
 
-    def _build_analysis_prompt(self, content: str, title: str) -> str:
+    def _build_analysis_prompt(self, content: str, title: str, topic: str) -> str:
         return (
-            "Analyze this competitor page content and extract structured market intelligence.\n\n"
-            f"Page title: {title}\n\nContent (truncated):\n{content[:12000]}\n\n"
-            "Return ONLY valid JSON with title, search_intent, headings, questions_answered, "
-            "entities, statistics, sections, and unique_angles. Extract only information actually "
-            "present in the page; do not invent information."
+            "Analyze this candidate competitor page for market coverage of the requested topic.\n\n"
+            f"Requested topic: {topic}\n"
+            f"Page title: {title}\n\n"
+            f"Content (truncated):\n{content[:12000]}\n\n"
+            "First determine whether the page meaningfully covers the requested topic. "
+            "coverage_scope must be FULL, PARTIAL, or NOT_RELEVANT. "
+            "FULL means the page substantially addresses the topic; PARTIAL means it covers a meaningful subset; "
+            "NOT_RELEVANT means the page is not a genuine competitor result for this topic. "
+            "relevance_score must be between 0 and 1. Extract only information actually present in the page. "
+            "Return ONLY valid JSON with title, search_intent, coverage_scope, relevance_score, headings, "
+            "questions_answered, entities, statistics, sections, unique_angles, and approximate_word_count."
         )
 
-    def _parse_analysis_response(self, response: Optional[str]) -> dict:
-        if not response or not response.strip():
-            return {}
-        try:
-            import json
-            data = json.loads(response.strip())
-            return data if isinstance(data, dict) else {}
-        except Exception:
-            logger.debug("Failed to parse competitor analysis response")
-            return {}
+    def _assess_coverage(
+        self,
+        analysis: CompetitorAnalysis,
+        relevant_sources: list[CompetitorSource],
+        successful_queries: int,
+    ) -> None:
+        if successful_queries == 0:
+            analysis.coverage.status = TopicCoverageStatus.SEARCH_FAILED
+            analysis.coverage.confidence = CoverageConfidence.LOW
+            analysis.coverage.opportunity_type = None
+            analysis.coverage.rationale = "All market-search queries failed. No market conclusion is safe."
+            return
+        if not relevant_sources:
+            analysis.coverage.status = TopicCoverageStatus.INSUFFICIENT_DATA
+            analysis.coverage.confidence = CoverageConfidence.LOW
+            analysis.coverage.opportunity_type = None
+            analysis.coverage.rationale = (
+                "Search completed, but no fetched result was sufficiently relevant to establish either "
+                "market coverage or market whitespace with confidence."
+            )
+            return
 
-    def _extract_gaps(self, topic: str, sources: list[CompetitorSource]) -> ContentGap:
-        if not sources:
+        has_full = any(s.coverage_scope == "FULL" for s in relevant_sources)
+        has_partial = any(s.coverage_scope == "PARTIAL" for s in relevant_sources)
+        if has_full:
+            status = TopicCoverageStatus.FOUND
+            rationale = "At least one relevant competitor page substantially covers the requested topic."
+        elif has_partial:
+            status = TopicCoverageStatus.PARTIALLY_FOUND
+            rationale = "Relevant competitor pages cover meaningful parts of the requested topic, but not comprehensively."
+        else:
+            status = TopicCoverageStatus.INSUFFICIENT_DATA
+            rationale = "No sufficiently classified competitor coverage was established."
+
+        analysis.coverage.status = status
+        analysis.coverage.opportunity_type = OpportunityType.COMPETITIVE_GAP
+        analysis.coverage.confidence = (
+            CoverageConfidence.HIGH if len(relevant_sources) >= 3
+            else CoverageConfidence.MEDIUM if len(relevant_sources) >= 2
+            else CoverageConfidence.LOW
+        )
+        analysis.coverage.rationale = rationale
+
+    def _extract_gaps(
+        self,
+        topic: str,
+        sources: list[CompetitorSource],
+        coverage: CoverageAssessment,
+    ) -> ContentGap:
+        if not sources or coverage.opportunity_type != OpportunityType.COMPETITIVE_GAP:
             return ContentGap()
         try:
             response = self.llm_client.generate(self._build_gap_prompt(topic, sources))
-            parsed = self._parse_gap_response(response)
+            parsed = self._parse_json(response)
         except Exception as exc:
             logger.debug("Competitor gap extraction LLM failed: %s", exc)
             return ContentGap()
@@ -207,7 +287,7 @@ class CompetitorAnalyzer:
             missing_statistics=self._clean_list(parsed.get("missing_statistics")),
             missing_user_concerns=self._clean_list(parsed.get("missing_user_concerns")),
             missing_angles=self._clean_list(parsed.get("missing_angles")),
-            competitor_topics_absent_from_ours=self._clean_list(parsed.get("competitor_topics_absent_from_ours")),
+            competitor_topics_absent_from_target=self._clean_list(parsed.get("competitor_topics_absent_from_target")),
         )
 
     def _build_gap_prompt(self, topic: str, sources: list[CompetitorSource]) -> str:
@@ -216,6 +296,7 @@ class CompetitorAnalyzer:
             summaries.append(
                 f"{idx}. {source.title or source.domain}\n"
                 f"   URL: {source.url}\n"
+                f"   Coverage: {source.coverage_scope} ({source.relevance_score:.2f})\n"
                 f"   Intent: {source.search_intent or 'unknown'}\n"
                 f"   Headings: {', '.join(source.headings[:12]) or 'unknown'}\n"
                 f"   Questions: {', '.join(source.questions_answered[:8]) or 'unknown'}\n"
@@ -224,23 +305,53 @@ class CompetitorAnalyzer:
                 f"   Unique angles: {', '.join(source.unique_angles[:6]) or 'unknown'}\n"
             )
         return (
-            "Identify editorial content opportunities across these competitor pages.\n\n"
+            "Identify genuine competitive content opportunities across these relevant competitor pages.\n\n"
             f"Target topic: {topic}\n\n" + "\n".join(summaries) + "\n\n"
+            "Do not assume anything about an unpublished target article. Identify market-level omissions, "
+            "under-covered questions, entities, comparisons, statistics, user concerns, and angles. "
             "Return ONLY valid JSON with missing_topics, missing_questions, missing_entities, "
             "missing_comparisons, missing_statistics, missing_user_concerns, missing_angles, "
-            "and competitor_topics_absent_from_target. These are editorial opportunities, not factual evidence."
+            "and competitor_topics_absent_from_target."
         )
 
-    def _parse_gap_response(self, response: Optional[str]) -> dict:
+    def _build_coverage_elements(self, sources: list[CompetitorSource]) -> list[CoverageElement]:
+        if not sources:
+            return []
+        counts: dict[str, set[str]] = {}
+        for source in sources:
+            elements = set(source.sections + source.questions_answered + source.entities)
+            for element in elements:
+                normalized = re.sub(r"\s+", " ", element.strip()).lower()
+                if normalized:
+                    counts.setdefault(normalized, set()).add(source.domain)
+        total = len({s.domain for s in sources})
+        return [
+            CoverageElement(
+                element=element,
+                covered_by_domains=sorted(domains),
+                coverage_count=len(domains),
+                coverage_percentage=round((len(domains) / total) * 100, 2) if total else 0.0,
+            )
+            for element, domains in sorted(counts.items(), key=lambda item: (-len(item[1]), item[0]))
+        ]
+
+    @staticmethod
+    def _parse_json(response: Optional[str]) -> dict:
         if not response or not response.strip():
             return {}
         try:
-            import json
             data = json.loads(response.strip())
             return data if isinstance(data, dict) else {}
         except Exception:
-            logger.debug("Failed to parse competitor gap response")
+            logger.debug("Failed to parse LLM JSON response")
             return {}
+
+    @staticmethod
+    def _bounded_score(value: object) -> float:
+        try:
+            return max(0.0, min(1.0, float(value)))
+        except (TypeError, ValueError):
+            return 0.0
 
     @staticmethod
     def _clean_list(value: object) -> list[str]:
