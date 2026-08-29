@@ -18,29 +18,30 @@ class ClientConfig:
     first_party_domains: tuple[str, ...] = field(default_factory=tuple)
 
     def __post_init__(self) -> None:
-        domain = self.domain.strip()
-        if not domain:
-            raise ValueError("domain must not be empty")
-        object.__setattr__(self, "domain", self._normalize_host(domain))
+        normalized_domain = self._normalize_host(self.domain)
+        object.__setattr__(self, "domain", normalized_domain)
 
-        domains = set(self.first_party_domains)
-        domains.add(self.domain)
-        object.__setattr__(self, "first_party_domains", tuple(sorted(d.lower().lstrip("www.") for d in domains)))
+        domains = {self._normalize_host(value) for value in self.first_party_domains}
+        domains.add(normalized_domain)
+        object.__setattr__(self, "first_party_domains", tuple(sorted(domains)))
 
     @staticmethod
     def _normalize_host(value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("domain must not be empty")
         parsed = urlparse(value if "://" in value else f"https://{value}")
         host = parsed.hostname
         if not host:
             raise ValueError(f"Invalid domain: {value!r}")
-        return host.lower().lstrip("www.")
+        return host.lower().removeprefix("www.")
 
     def is_first_party_url(self, url: str) -> bool:
-        """Return True only for the configured host or its subdomains."""
+        """Return True only for a configured host or one of its subdomains."""
         host = urlparse(url).hostname
         if not host:
             return False
-        host = host.lower().lstrip("www.")
+        host = host.lower().removeprefix("www.")
         return any(host == domain or host.endswith(f".{domain}") for domain in self.first_party_domains)
 
     @property
