@@ -1,7 +1,7 @@
 [project]
-name = "power-win-content"
+name = "content-intelligence-engine"
 version = "0.1.0"
-description = "AI-powered content production system for Power.win"
+description = "Domain-independent AI content intelligence and production engine"
 requires-python = ">=3.13"
 dependencies = [
     "httpx",
