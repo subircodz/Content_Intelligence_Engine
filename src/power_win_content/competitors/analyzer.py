@@ -234,14 +234,24 @@ class CompetitorAnalyzer:
             analysis.coverage.opportunity_type = None
             analysis.coverage.rationale = "All market-search queries failed. No market conclusion is safe."
             return
+
         if not relevant_sources:
-            analysis.coverage.status = TopicCoverageStatus.INSUFFICIENT_DATA
-            analysis.coverage.confidence = CoverageConfidence.LOW
-            analysis.coverage.opportunity_type = None
-            analysis.coverage.rationale = (
-                "Search completed, but no fetched result was sufficiently relevant to establish either "
-                "market coverage or market whitespace with confidence."
-            )
+            if analysis.coverage.candidate_pages_discovered >= 5 and analysis.failures == 0:
+                analysis.coverage.status = TopicCoverageStatus.NOT_FOUND
+                analysis.coverage.confidence = CoverageConfidence.MEDIUM
+                analysis.coverage.opportunity_type = OpportunityType.MARKET_WHITESPACE
+                analysis.coverage.rationale = (
+                    "Multiple candidate competitor pages were discovered and analyzed, but none meaningfully "
+                    "covered the requested topic. This is classified as market whitespace rather than a competitive gap."
+                )
+            else:
+                analysis.coverage.status = TopicCoverageStatus.INSUFFICIENT_DATA
+                analysis.coverage.confidence = CoverageConfidence.LOW
+                analysis.coverage.opportunity_type = None
+                analysis.coverage.rationale = (
+                    "Search completed, but the evidence set was too small or incomplete to establish either "
+                    "market coverage or market whitespace with confidence."
+                )
             return
 
         has_full = any(s.coverage_scope == "FULL" for s in relevant_sources)
