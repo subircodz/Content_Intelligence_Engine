@@ -249,7 +249,7 @@ Each pipeline phase reports `SUCCESS`, `DEGRADED`, or `FAILED`.
 content-intelligence-engine/
 ├── pyproject.toml
 ├── README.md
-├── .env                         # Local secrets; never commit
+├── .env                         # Local secrets
 ├── .gitignore
 ├── .claude/
 │   └── CLAUDE.md
@@ -258,7 +258,7 @@ content-intelligence-engine/
 ├── scripts/                     # Developer/live utilities
 ├── tests/                       # Automated tests
 └── src/
-    └── power_win_content/       # Historical Python import package name
+    └── intelligence_content_engine/       # Historical Python import package name
         ├── main.py              # Pipeline orchestration / CLI
         ├── client.py            # Target-domain ClientConfig
         ├── config.py             # Environment settings
@@ -284,8 +284,6 @@ content-intelligence-engine/
         └── output/
             └── docx_writer.py
 ```
-
-The distribution/project identity is `content-intelligence-engine`. The Python import package retains its historical name for now and is a separate package-cleanup task.
 
 ---
 
@@ -379,13 +377,13 @@ The target domain is part of every content job. It can come from environment con
 ### Environment-configured target
 
 ```bash
-venv/bin/python -m power_win_content.main "Your Article Topic"
+venv/bin/python -m intelligence_content_engine.main "Your Article Topic"
 ```
 
 ### Explicit target
 
 ```bash
-venv/bin/python -m power_win_content.main \
+venv/bin/python -m intelligence_content_engine.main \
   --target-domain example.com \
   --target-brand "Example" \
   --first-party-sitemap https://example.com/sitemap.xml \
@@ -397,13 +395,13 @@ Multiple first-party sitemaps can be supplied by repeating `--first-party-sitema
 Interactive mode:
 
 ```bash
-venv/bin/python -m power_win_content.main
+venv/bin/python -m intelligence_content_engine.main
 ```
 
 Debug mode:
 
 ```bash
-venv/bin/python -m power_win_content.main --debug "Your Article Topic"
+venv/bin/python -m intelligence_content_engine.main --debug "Your Article Topic"
 ```
 
 The generated article is written as a DOCX under `output/`.
@@ -451,21 +449,6 @@ A competitor is useful only when its page meaningfully addresses the requested t
 
 The configured target domain and configured first-party domains are excluded from competitor discovery.
 
-### Coverage model
-
-The long-term target is a structured market coverage model rather than relying entirely on an LLM to infer gaps from prose:
-
-```text
-                    Competitor A  B  C  D  E
-Topic / subtopic          yes     yes no yes no
-Question                  yes     no  no yes no
-Entity                    yes     yes yes no no
-Comparison                no      yes no  no yes
-Statistic                 yes     no  no  no no
-```
-
-This allows the system to distinguish common market coverage from under-covered topics and genuine whitespace.
-
 ---
 
 ## Case 1 — Competitive Content Gap
@@ -497,8 +480,6 @@ The system should then:
 4. Determine search intent and user questions.
 5. Build the SEO/AIO/GEO strategy from the topic itself rather than invented competitor weaknesses.
 6. Generate the article.
-
-A search failure, fetch failure, CAPTCHA, API outage, or insufficient sample must **never** be represented as confirmed market whitespace.
 
 ---
 
@@ -682,8 +663,6 @@ Candidate URLs
 
 Provider failures should be isolated so one failed provider does not automatically invalidate all available search data.
 
-CAPTCHA/challenge pages are treated as unavailable results. The application does not bypass CAPTCHAs, anti-bot systems, authentication, or access controls.
-
 ---
 
 ## Phase Status
@@ -718,7 +697,7 @@ Run the automated suite with:
 venv/bin/pytest tests
 ```
 
-Tests should cover:
+Tests covers:
 
 - target-domain normalization
 - first-party URL detection
