@@ -10,7 +10,7 @@ load_dotenv()
 class Settings:
     """Runtime settings for the domain-independent content intelligence engine."""
 
-    def __init__(self) -> None:
+    def __init__(self, require_target: bool = True) -> None:
         self.llm_base_url = os.getenv("LLM_BASE_URL", "http://localhost:20128/v1")
         self.llm_model = os.getenv("LLM_MODEL", "auto")
         self.google_api_key = os.getenv("GOOGLE_API_KEY")
@@ -22,13 +22,12 @@ class Settings:
         sitemap_values = os.getenv("TARGET_FIRST_PARTY_SITEMAPS", "")
         sitemaps = tuple(url.strip() for url in sitemap_values.split(",") if url.strip())
 
-        if not domain:
-            raise ValueError(
-                "TARGET_DOMAIN is required. Configure the target site through environment variables."
+        self.client = None
+        if domain:
+            self.client = ClientConfig(
+                name=name or domain,
+                domain=domain,
+                first_party_sitemaps=sitemaps,
             )
-
-        self.client = ClientConfig(
-            name=name or domain,
-            domain=domain,
-            first_party_sitemaps=sitemaps,
-        )
+        elif require_target:
+            raise ValueError("TARGET_DOMAIN is required unless a target domain is supplied through the CLI.")
