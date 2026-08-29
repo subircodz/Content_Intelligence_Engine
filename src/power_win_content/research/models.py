@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 
@@ -44,7 +44,7 @@ class Source(BaseModel):
     title: Optional[str] = Field(None, description="Article/page title")
     publication_date: Optional[datetime] = Field(None, description="Original publication date")
     updated_date: Optional[datetime] = Field(None, description="Last known update date")
-    checked_date: datetime = Field(default_factory=datetime.now, description="When this source was last verified")
+    checked_date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="When this source was last verified")
     notes: Optional[str] = Field(None, description="Additional context about the source")
 
     model_config = {"use_enum_values": True}
@@ -55,6 +55,9 @@ class Evidence(BaseModel):
     excerpt: str = Field(..., description="Relevant text excerpt from the source")
     notes: Optional[str] = Field(None, description="Additional context about this evidence")
     retrieval_method: str = Field(default="http", description="How content was retrieved")
+    retrieved_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="When the source content was retrieved")
+    content_sha256: Optional[str] = Field(None, description="SHA-256 hash of the retrieved source content")
+    excerpt_verified: bool = Field(default=False, description="Whether the excerpt was verified against retrieved source content")
 
     model_config = {"use_enum_values": True}
 
@@ -105,7 +108,7 @@ class ResearchPlan(BaseModel):
     required_first_party_checks: list[str] = Field(default_factory=list, description="Specific target-site checks")
     required_external_checks: list[str] = Field(default_factory=list, description="External sources to consult")
     claims_to_verify: list[str] = Field(default_factory=list, description="Claims requiring verification")
-    created_at: datetime = Field(default_factory=datetime.now)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     model_config = {"use_enum_values": True}
 
@@ -121,7 +124,7 @@ class ResearchResult(BaseModel):
     research_gaps: list[ResearchGap] = Field(default_factory=list, description="Questions that could not be answered")
     summary: Optional[str] = Field(None, description="Narrative summary of findings")
     status: ClaimStatus = Field(default=ClaimStatus.UNCERTAIN, description="Overall research completeness")
-    researched_at: datetime = Field(default_factory=datetime.now)
+    researched_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     model_config = {"use_enum_values": True}
 
