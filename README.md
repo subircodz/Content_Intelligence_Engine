@@ -1,310 +1,436 @@
 # Content Intelligence Engine
 
-An AI-assisted, domain-independent content intelligence and production engine for researching a topic, understanding the competitive market, identifying content opportunities, creating an SEO/AIO/GEO strategy, and producing a human-reviewable article draft.
+A domain-independent content intelligence and production engine that turns a topic into research-backed content strategy and a human-reviewable article draft.
 
-> **Editorial requirement:** generated content is an editorial draft. Human review is required before publication.
+The engine researches the topic and its surrounding market, analyzes meaningful competitor coverage, identifies either competitive content opportunities or market whitespace, develops an SEO/AIO/GEO strategy, and generates the resulting article as a DOCX document.
+
+> **Editorial boundary:** generated articles are drafts for human review. The engine does not publish content automatically.
 
 ---
 
-## Product Objective
+## What It Does
 
-Given a **target domain** and a **topic**, the engine should determine whether the topic is meaningfully covered by the competitor market and then choose the correct content-opportunity path.
+A content job starts with two inputs:
 
-### Case 1 — Topic found in the competitor market
+- **Target domain** — the website or client the content is being produced for.
+- **Topic** — the subject to research and turn into content.
+
+The engine then runs the topic through a research and production pipeline:
+
+```text
+Topic + Target Domain
+        |
+        v
+     Research
+        |
+        v
+Market / Competitor Intelligence
+        |
+        v
+Content Opportunity Detection
+        |
+        v
+ Research Quality Gate
+        |
+        v
+ Content Strategy
+   |    |    |
+  SEO  AIO  GEO
+        |
+        v
+ Article Generation
+        |
+        v
+      DOCX
+```
+
+The result is more than an article draft. The intermediate research and strategy stages provide the intelligence used to determine what the article should cover and how it should be positioned.
+
+---
+
+## Content Opportunity Detection
+
+The engine distinguishes between two fundamentally different market conditions.
+
+### Competitive Opportunity
+
+When meaningful competitor content exists for the topic, the engine analyzes that coverage to identify opportunities for differentiation.
 
 ```text
 Topic
   |
   v
-Market / Competitor Research
+Market Research
   |
   v
-Meaningful competitor coverage found
+Meaningful Competitor Coverage
   |
   v
-Competitive Coverage Analysis
+Coverage Analysis
   |
   v
-Content Gap Analysis
+Content Gaps + Differentiation Opportunities
   |
   v
-Content Differentiation Strategy
-  |
-  v
-SEO + AIO + GEO Strategy
+SEO / AIO / GEO Strategy
   |
   v
 Article Draft
 ```
 
-The goal is to understand what the market covers, where coverage is weak or incomplete, and what useful differentiation opportunities exist.
+Examples of opportunities include:
 
-### Case 2 — Topic not found in the competitor market
+- important topics competitors omit
+- unanswered user questions
+- missing entities or concepts
+- weak or shallow coverage
+- repetitive approaches
+- useful comparisons
+- evidence or data opportunities
+- underserved user concerns
+
+Competitor analysis is used as planning intelligence. A competitor's inclusion of a claim does not make that claim authoritative or true.
+
+### Market Whitespace
+
+When sufficient research finds no meaningful competitor coverage, the engine treats the result as market whitespace rather than forcing a competitive-gap analysis.
 
 ```text
 Topic
   |
   v
-Market / Competitor Research
+Market Research
   |
   v
-No meaningful competitor coverage
+No Meaningful Competitor Coverage
   |
   v
-Market Whitespace / Topic Opportunity
+Market Whitespace
   |
   v
 Independent Topic Research
   |
   v
-SEO + AIO + GEO Strategy
+SEO / AIO / GEO Strategy
   |
   v
 Article Draft
 ```
 
-The system must not manufacture competitor gaps when meaningful competitor coverage does not exist. **Case 2 is a valid successful content opportunity and must continue through independent research, SEO/AIO/GEO strategy, and article generation.**
-
-### Coverage status must be explicit
-
-The system must distinguish:
-
-- `TOPIC_FOUND` — meaningful competitor coverage was identified
-- `TOPIC_PARTIALLY_FOUND` — some meaningful coverage exists, but market coverage is limited
-- `TOPIC_NOT_FOUND` — sufficient market research was completed and meaningful competitor coverage was not identified
-- `INSUFFICIENT_DATA` — the evidence collected is not sufficient to determine market coverage
-- `SEARCH_FAILED` — search/retrieval infrastructure failed
-
-`TOPIC_NOT_FOUND` must never mean merely "the search returned nothing".
+The topic therefore remains a valid content opportunity even when competitors do not provide useful material to compare against.
 
 ---
 
-## Architecture
+## Research Outcomes
+
+Market coverage and infrastructure health are represented separately.
+
+| Outcome | Meaning |
+|---|---|
+| `TOPIC_FOUND` | Meaningful competitor coverage was identified. |
+| `TOPIC_PARTIALLY_FOUND` | Some meaningful competitor coverage exists, but coverage is limited. |
+| `TOPIC_NOT_FOUND` | Sufficient market research found no meaningful competitor coverage. |
+| `INSUFFICIENT_DATA` | Available evidence is insufficient to determine market coverage confidently. |
+| `SEARCH_FAILED` | Search or retrieval infrastructure failed. |
+
+`TOPIC_NOT_FOUND` is a market finding, not an infrastructure failure. `SEARCH_FAILED` indicates that the engine could not reliably complete the required retrieval work.
+
+---
+
+## How the Engine Works
+
+### 1. Research
+
+The research layer collects information from first-party and external sources relevant to the topic.
+
+It supports:
+
+- multi-provider web search
+- first-party sitemap discovery
+- HTTP webpage retrieval
+- Playwright fallback for JavaScript-heavy pages
+- source normalization and URL handling
+- claim and evidence extraction
+- research-gap recording
+- claim-status classification
+
+### 2. Competitor Intelligence
+
+Search results are treated as candidate sources rather than automatically accepted as competitors.
+
+The competitor analysis process is:
 
 ```text
-                         CONTENT JOB
-                             |
-          +------------------+------------------+
-          |                                     |
-          v                                     v
-   Target Domain                              Topic
-          |                                     |
-          +------------------+------------------+
-                             |
-                             v
-                    MARKET RESEARCH
-                             |
-                  Competitor Discovery
-                             |
-                  Topic Coverage Assessment
-                             |
-               +-------------+-------------+
-               |                           |
-               v                           v
-       TOPIC FOUND / PARTIAL         TOPIC NOT FOUND
-               |                           |
-               v                           v
-       Competitive Gap              Market Whitespace
-          Analysis                    Analysis
-               |                           |
-               +-------------+-------------+
-                             |
-                             v
-                     Content Strategy
-                             |
-                    +--------+--------+
-                    |        |        |
-                    v        v        v
-                   SEO      AIO      GEO
-                    |        |        |
-                    +--------+--------+
-                             |
-                             v
-                         Writing
-                             |
-                             v
-                    Human-reviewable Draft
-                             |
-                             v
-                           DOCX
+Search
+  |
+  v
+Candidate URLs
+  |
+  v
+Relevance / Competitor Filtering
+  |
+  v
+Competitor Page Retrieval
+  |
+  v
+Coverage Extraction
+  |
+  v
+Market Coverage View
+  |
+  v
+Coverage Classification
 ```
 
-The engine separates **market intelligence** from **target-domain configuration**. The core research, competitor, strategy, and writing components must not assume a particular brand, website, or industry.
+The configured target domain and first-party domains are excluded from competitor discovery.
+
+A page is considered useful competitor coverage when it meaningfully addresses the requested topic; merely mentioning the topic is not sufficient.
+
+### 3. Research Quality
+
+Before strategy generation, the collected research passes through a quality gate.
+
+The quality assessment considers factors such as:
+
+- usable evidence available to the writer
+- unsupported-claim proportion
+- conflicting claims
+- unresolved research gaps
+- competitor coverage confidence
+- whether competitor research completed successfully
+
+The phase can complete as `SUCCESS`, `DEGRADED`, or `FAILED` depending on the quality and completeness of the available evidence.
+
+### 4. Content Strategy
+
+The strategy layer converts research and market intelligence into an article brief.
+
+The brief can include:
+
+- search intent
+- primary and secondary keyword considerations
+- semantic coverage
+- article structure
+- questions that should be answered directly
+- important entities and relationships
+- authoritative sources to consider
+- competitive differentiation or whitespace opportunities
+
+### 5. Article Generation
+
+The content writer uses the research-backed strategy to produce an article draft.
+
+The original user-supplied topic remains the article title in the generated document. An LLM-recommended SEO title is treated as a recommendation rather than silently replacing the requested title.
+
+### 6. DOCX Output
+
+The generated article is saved under `output/` as a Word document.
+
+The document supports formatted headings, paragraphs, lists, emphasis, and supported Markdown structures. When competitor analysis is available, relevant competitor-gap planning information can also be included.
 
 ---
 
 ## Domain Independence
 
-The target site is represented by configuration:
+The engine is designed to work across clients, websites, and industries. A target domain is configuration, not a hard-coded part of the content intelligence pipeline.
+
+```text
+                    Content Intelligence Engine
+                              |
+             +----------------+----------------+
+             |                |                |
+          Client A         Client B         Client C
+             |                |                |
+         domain-a.com     domain-b.com     domain-c.com
+```
+
+Target configuration is represented by `ClientConfig`:
 
 ```text
 ClientConfig
 ├── name
 ├── domain
-├── first_party_domains
 └── first_party_sitemaps
 ```
 
-Examples:
+Target-specific information can include:
 
-```text
-Target A
-  Brand: Example
-  Domain: example.com
-  First-party sources: configured sitemaps
-
-Target B
-  Brand: Another Example
-  Domain: another.example
-  First-party sources: configured sitemaps
-```
-
-Both use the same engine.
-
-### Design rule
-
-**Target-specific behavior belongs in client configuration or adapters, not in the core engine.**
-
-Examples of target-specific configuration:
-
-- target brand name
+- brand name
 - target domain
-- first-party domains
-- first-party sitemaps
+- first-party domains and sitemaps
 - editorial rules
 - brand terminology
-- genuinely necessary industry-specific source rules
+- genuinely necessary industry-specific source configuration
 
-Examples of domain-independent functionality:
-
-- search
-- webpage retrieval
-- source normalization
-- competitor discovery
-- topic coverage analysis
-- gap/whitespace analysis
-- evidence extraction
-- content strategy
-- SEO/AIO/GEO planning
-- article generation
-- DOCX generation
+The research, competitor intelligence, evidence, strategy, writing, and output components are reusable across domains.
 
 ---
 
-## Current Pipeline
+## SEO / AIO / GEO Strategy
+
+The engine treats SEO, AIO, and GEO as complementary strategy components rather than separate content-generation systems.
+
+### SEO
+
+The strategy considers factors such as:
+
+- search intent
+- primary keyword
+- secondary and semantic terms
+- content structure
+- title and metadata considerations
+- related internal-content opportunities
+
+### AIO
+
+The strategy considers how information can be presented clearly for answer-oriented search experiences, including:
+
+- direct answers
+- concise definitions
+- explicit question coverage
+- answer-first structures
+- factual clarity
+
+### GEO
+
+The strategy considers information useful to generative search systems, including:
+
+- important entities
+- authoritative sources
+- entity relationships
+- contextual completeness
+- clearly supported factual information
+
+These strategy components remain independent of any specific client or industry.
+
+---
+
+## Research and Evidence
+
+The engine uses source-backed research as the foundation for content planning and generation.
+
+Evidence is treated as more than text generated by an LLM. Retrieved source content and retrieval metadata form the audit trail.
+
+Supporting text may be a faithful paraphrase or summary rather than a verbatim quotation. Evidence validation therefore focuses on whether the source semantically supports the associated claim.
+
+Evidence can be classified as:
+
+- **FULL SUPPORT** — the source clearly supports the claim.
+- **PARTIAL SUPPORT** — the source supports only part of the claim.
+- **WEAK / AMBIGUOUS** — support is uncertain and requires review.
+- **UNSUPPORTED** — the source does not substantiate the claim.
+
+LLM output by itself is not treated as proof of a factual claim.
+
+---
+
+## Architecture
+
+At the application level, the pipeline is organized around distinct responsibilities:
 
 ```text
 CLI / UI
-    |
-    v
+   |
+   v
 Content Job + ClientConfig
-    |
-    v
+   |
+   v
 Research
-    |-- Multi-provider Web Search
-    |-- First-party Sitemap Discovery
-    |-- HTTP Fetching
-    |-- Playwright Fallback
-    |-- Evidence / Claim Extraction
-    |
-    v
+   |
+   +-- First-party discovery
+   +-- External search
+   +-- Web retrieval
+   +-- Evidence extraction
+   |
+   v
 Competitor Intelligence
-    |-- Candidate Discovery
-    |-- Target-domain Exclusion
-    |-- Competitor Fetching
-    |-- Competitor Coverage Extraction
-    |-- Coverage / Gap Analysis
-    |
-    v
+   |
+   +-- Candidate discovery
+   +-- Domain exclusion
+   +-- Coverage extraction
+   +-- Gap / whitespace analysis
+   |
+   v
 Research Quality Gate
-    |-- Research completeness
-    |-- Safe/unsupported claim balance
-    |-- Conflict/gap warnings
-    |-- Competitor evidence sufficiency
-    |-- Blocks failed research
-    |-- Allows valid Case 2 whitespace to continue
-    |
-    v
+   |
+   v
 Content Strategy
-    |-- Search Intent
-    |-- SEO
-    |-- AIO
-    |-- GEO
-    |-- Competitive Differentiation / Whitespace
-    |
-    v
+   |
+   +-- SEO
+   +-- AIO
+   +-- GEO
+   |
+   v
 Content Writer
-    |
-    v
+   |
+   v
 DOCX Output
 ```
 
-Each pipeline phase reports `SUCCESS`, `DEGRADED`, or `FAILED`.
+Each major pipeline phase exposes a phase status:
+
+| Status | Meaning |
+|---|---|
+| `SUCCESS` | The phase produced its expected output with sufficient data. |
+| `DEGRADED` | The phase completed with known limitations or partial data. |
+| `FAILED` | The phase could not produce usable output. |
+
+This phase status is separate from business conclusions such as `TOPIC_NOT_FOUND`.
 
 ---
 
-## Repository Structure
+## LLM Integration
+
+The LLM layer is provider-agnostic. `LLMClient` communicates with an OpenAI-compatible `/chat/completions` endpoint.
 
 ```text
-content-intelligence-engine/
-├── pyproject.toml
-├── README.md
-├── .env                         # Local secrets
-├── .gitignore
-├── .claude/
-│   └── CLAUDE.md
-├── docs/
-├── output/                      # Generated DOCX files
-├── scripts/                     # Developer/live utilities
-├── tests/                       # Automated tests
-└── src/
-    └── intelligence_content_engine/       # Historical Python import package name
-        ├── main.py              # Pipeline orchestration / CLI
-        ├── client.py            # Target-domain ClientConfig
-        ├── config.py             # Environment settings
-        ├── ui.py
-        ├── llm/
-        │   └── client.py        # OpenAI-compatible LLM client
-        ├── research/
-        │   ├── models.py
-        │   ├── quality.py       # Research quality gate
-        │   ├── researcher.py
-        │   ├── domain_researcher.py
-        │   └── tools/
-        ├── competitors/
-        │   ├── analyzer.py
-        │   └── models.py
-        ├── strategy/
-        │   ├── strategist.py
-        │   ├── domain_strategist.py
-        │   └── models.py
-        ├── agents/
-        │   ├── content_writer.py
-        │   └── domain_content_writer.py
-        └── output/
-            └── docx_writer.py
+LLMClient
+   |
+   v
+LLM_BASE_URL + /chat/completions
+   |
+   v
+Configured LLM_MODEL
 ```
+
+The endpoint can represent a hosted provider, self-hosted model, gateway, router, or another compatible implementation.
+
+The core engine therefore does not depend on a specific LLM vendor or model.
 
 ---
 
-## Prerequisites
+## Search Providers
 
-| Requirement | Detail |
-|---|---|
-| Python | >= 3.13 |
-| Network access | Required for web search, webpage fetching, and the LLM API |
-| LLM provider | Any OpenAI-compatible `/chat/completions` endpoint |
-| Playwright Chromium | Required for browser-based search/fetch fallbacks |
+The search layer supports multiple providers and fallback paths.
 
-Install Chromium once:
-
-```bash
-playwright install chromium
+```text
+Query
+ |
+ +--> DuckDuckGo
+ |
+ +--> Google API (when configured)
+ |       |
+ |       +--> Browser fallback
+ |
+ +--> Bing browser search
+         |
+         +--> Legacy API path (when configured)
+ |
+ v
+Normalize
+ |
+ v
+Deduplicate
+ |
+ v
+Candidate URLs
 ```
+
+Provider failures are isolated where possible so a failure in one search path does not automatically invalidate usable results from other paths.
 
 ---
 
-## Environment Configuration
+## Configuration
 
 The application loads `.env` from the project root through `python-dotenv`.
 
@@ -312,36 +438,33 @@ The application loads `.env` from the project root through `python-dotenv`.
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `TARGET_DOMAIN` | Yes | Target domain for which content is being produced |
-| `TARGET_BRAND` | Optional | Human-readable target brand name; defaults to `TARGET_DOMAIN` |
-| `TARGET_FIRST_PARTY_SITEMAPS` | Optional | Comma-separated first-party sitemap URLs |
+| `TARGET_DOMAIN` | Yes | Target website domain. |
+| `TARGET_BRAND` | Optional | Human-readable target brand; defaults to the domain. |
+| `TARGET_FIRST_PARTY_SITEMAPS` | Optional | Comma-separated first-party sitemap URLs. |
 
 ### LLM
 
-The engine is **provider-agnostic** at the LLM layer. It requires an OpenAI-compatible chat-completions endpoint; the endpoint may be hosted by any compatible provider or locally.
-
 | Variable | Required | Purpose |
 |---|---|---|
-| `LLM_BASE_URL` | Yes in production | OpenAI-compatible LLM API base URL |
-| `LLM_MODEL` | Yes in production | Model name sent to the endpoint |
-
-The engine does not contain a dependency on a specific LLM vendor, gateway, router, or model provider.
+| `LLM_BASE_URL` | Yes in production | OpenAI-compatible LLM API base URL. |
+| `LLM_MODEL` | Yes in production | Model name sent to the configured endpoint. |
 
 ### Search
 
 | Variable | Required | Purpose |
 |---|---|---|
-| None | No | DuckDuckGo can operate without credentials |
-| `GOOGLE_API_KEY` | Optional | Google Custom Search API credential |
-| `GOOGLE_CSE_ID` | Optional | Google Custom Search Engine ID |
-| `BING_API_KEY` | Optional / legacy | Legacy Bing API path; browser search remains available |
+| `GOOGLE_API_KEY` | Optional | Google Custom Search API credential. |
+| `GOOGLE_CSE_ID` | Optional | Google Custom Search Engine ID. |
+| `BING_API_KEY` | Optional / legacy | Legacy Bing API path. Browser search remains available. |
+
+DuckDuckGo search can operate without credentials.
 
 ---
 
 ## Installation
 
 ```bash
-git clone <repository-url> content-intelligence-engine
+git clone https://github.com/subircodz/Content_Intelligence_Engine.git content-intelligence-engine
 cd content-intelligence-engine
 
 python3 -m venv venv
@@ -362,7 +485,7 @@ LLM_BASE_URL=https://llm.example.com/v1
 LLM_MODEL=your-model
 ```
 
-Run tests:
+Run the automated tests:
 
 ```bash
 venv/bin/pytest tests
@@ -372,7 +495,7 @@ venv/bin/pytest tests
 
 ## Running the Engine
 
-The target domain is part of every content job. It can come from environment configuration or be overridden through the CLI.
+The target domain can be supplied through environment configuration or overridden through the CLI.
 
 ### Environment-configured target
 
@@ -392,336 +515,106 @@ venv/bin/python -m intelligence_content_engine.main \
 
 Multiple first-party sitemaps can be supplied by repeating `--first-party-sitemap`.
 
-Interactive mode:
+### Interactive mode
 
 ```bash
 venv/bin/python -m intelligence_content_engine.main
 ```
 
-Debug mode:
+### Debug mode
 
 ```bash
 venv/bin/python -m intelligence_content_engine.main --debug "Your Article Topic"
 ```
 
-The generated article is written as a DOCX under `output/`.
+Generated article documents are written to `output/`.
 
 ---
 
-## Competitor Market Research
-
-Competitor research is not simply a list of search results. The intended process is:
+## Repository Structure
 
 ```text
-Topic
-  |
-  v
-Multi-engine discovery
-  |
-  v
-Candidate pages
-  |
-  v
-Relevance / competitor filtering
-  |
-  v
-Fetch competitor pages
-  |
-  v
-Extract structured coverage
-  |
-  v
-Build market coverage view
-  |
-  v
-Determine topic coverage status
-  |
-  +-----------------------------+
-  |                             |
-  v                             v
-FOUND / PARTIAL             NOT FOUND
-  |                             |
-  v                             v
-Gap Analysis               Whitespace
+content-intelligence-engine/
+├── pyproject.toml
+├── README.md
+├── .env
+├── .gitignore
+├── .claude/
+│   └── CLAUDE.md
+├── docs/
+├── output/                      # Generated DOCX files
+├── scripts/                     # Developer/live utilities
+├── tests/                       # Automated tests
+└── src/
+    └── intelligence_content_engine/
+        ├── main.py              # Pipeline orchestration / CLI
+        ├── client.py            # Target-domain configuration
+        ├── config.py            # Environment settings
+        ├── ui.py
+        ├── llm/
+        │   └── client.py        # OpenAI-compatible LLM client
+        ├── research/
+        │   ├── models.py
+        │   ├── quality.py       # Research quality assessment
+        │   ├── researcher.py
+        │   ├── domain_researcher.py
+        │   └── tools/
+        ├── competitors/
+        │   ├── analyzer.py
+        │   └── models.py
+        ├── strategy/
+        │   ├── strategist.py
+        │   ├── domain_strategist.py
+        │   └── models.py
+        ├── agents/
+        │   ├── content_writer.py
+        │   └── domain_content_writer.py
+        └── output/
+            └── docx_writer.py
 ```
-
-A competitor is useful only when its page meaningfully addresses the requested topic. A search result merely mentioning the topic is not sufficient.
-
-The configured target domain and configured first-party domains are excluded from competitor discovery.
-
----
-
-## Case 1 — Competitive Content Gap
-
-When meaningful competitor coverage exists, the engine should identify opportunities such as:
-
-- topics competitors omit
-- questions competitors fail to answer
-- entities competitors miss
-- comparisons that improve decision-making
-- statistics or evidence opportunities
-- user concerns that are poorly addressed
-- weak, shallow, or repetitive angles
-- useful differentiation opportunities
-
-Competitor gaps are **planning intelligence**, not proof that a competitor's claims are true.
-
----
-
-## Case 2 — Market Whitespace
-
-When sufficient research shows that meaningful competitor coverage does not exist, the engine must switch from competitive-gap analysis to whitespace analysis.
-
-The system should then:
-
-1. Record that the topic is currently underserved/not meaningfully covered.
-2. Record the evidence and limitations supporting that conclusion.
-3. Research the topic independently using appropriate authoritative sources.
-4. Determine search intent and user questions.
-5. Build the SEO/AIO/GEO strategy from the topic itself rather than invented competitor weaknesses.
-6. Generate the article.
-
----
-
-## Research Quality Gate
-
-The quality gate sits between research/competitor analysis and strategy generation.
-
-```text
-Research + Competitor Intelligence
-              |
-              v
-       Research Quality Gate
-              |
-       +------+------+
-       |             |
-       v             v
-      FAIL      PASS / DEGRADED
-       |             |
-       v             v
-      STOP        Strategy
-                     |
-              +------+------+
-              |             |
-          Case 1         Case 2
-          Gap             Whitespace
-              |             |
-              +------+------+
-                     |
-                SEO/AIO/GEO
-                     |
-                  Article
-```
-
-The gate evaluates:
-
-- number of safe claims available to the writer
-- unsupported-claim proportion
-- conflicting claims
-- unresolved research gaps
-- competitor coverage confidence
-- whether competitor research actually succeeded
-
-### Blocking conditions
-
-The gate blocks strategy generation when research is unusable, for example:
-
-- no usable research result
-- insufficient safe claims
-- excessive unsupported claims
-- competitor search actually failed
-
-### Non-blocking conditions
-
-The gate can mark research `DEGRADED` without stopping article generation when limitations are known and manageable.
-
-Most importantly:
-
-> **`TOPIC_NOT_FOUND` is not a failure. It is a valid Case 2 outcome.**
-
-A valid `TOPIC_NOT_FOUND` result continues through independent research, SEO/AIO/GEO strategy, and article generation.
-
-`INSUFFICIENT_DATA` is different: it means the engine must not claim confirmed market whitespace. The article may proceed only when the remaining research is otherwise usable and the strategy layer is explicitly prevented from treating the topic as confirmed whitespace.
-
----
-
-## SEO / AIO / GEO Strategy
-
-The strategy layer translates research and market intelligence into an article plan.
-
-### SEO
-
-Examples of strategy inputs:
-
-- search intent
-- primary keyword
-- secondary keywords
-- semantic coverage
-- heading structure
-- title/meta considerations
-- useful internal content opportunities
-
-### AIO
-
-Examples of strategy inputs:
-
-- questions requiring direct answers
-- concise definitions
-- answer-first structures
-- explicit question/answer coverage
-- factual clarity
-
-### GEO
-
-Examples of strategy inputs:
-
-- important entities
-- authoritative sources
-- entity relationships
-- contextual completeness
-- information useful to generative search systems
-
-The optimization layers are strategy components. They are not coupled to a particular client or industry.
-
----
-
-## Research and Evidence
-
-The research layer supports content strategy with source-backed information.
-
-Current capabilities include:
-
-- first-party sitemap discovery
-- multi-provider web search
-- HTTP webpage fetching
-- Playwright fallback for JavaScript-heavy pages
-- claim/evidence extraction through the LLM
-- research-gap recording
-- claim status classification
-
-### Evidence integrity requirement
-
-LLM-generated supporting text is **not required to be a verbatim quotation** from the source. It may be a faithful paraphrase or summary.
-
-Evidence validation must therefore evaluate **semantic support**, not exact string equality. The source must actually contain information that supports the claim represented by the supporting text.
-
-The intended evidence states are:
-
-- **FULL SUPPORT** — the source clearly supports the claim
-- **PARTIAL SUPPORT** — the source supports only part of the claim
-- **WEAK / AMBIGUOUS** — support is uncertain and needs review
-- **UNSUPPORTED** — the source does not substantiate the claim
-
-The original retrieved source content and retrieval metadata remain the audit trail. LLM output alone is never treated as proof.
-
----
-
-## LLM Abstraction
-
-`LLMClient` communicates with any OpenAI-compatible `/chat/completions` endpoint:
-
-```text
-LLMClient
-   |
-   v
-LLM_BASE_URL + /chat/completions
-   |
-   v
-Configured LLM_MODEL
-```
-
-The core engine does not know whether the endpoint is a hosted API, self-hosted model, gateway, router, or another compatible service.
-
----
-
-## Search Provider Behaviour
-
-Current search infrastructure supports multiple providers and fallbacks.
-
-```text
-Query
- |
- +--> DuckDuckGo
- |
- +--> Google API (when configured)
- |       |
- |       +--> browser fallback when required
- |
- +--> Bing browser search
-         |
-         +--> legacy API path when configured
- |
- v
-Normalize
- |
- v
-Deduplicate
- |
- v
-Candidate URLs
-```
-
-Provider failures should be isolated so one failed provider does not automatically invalidate all available search data.
-
----
-
-## Phase Status
-
-Each major phase reports:
-
-| Status | Meaning |
-|---|---|
-| `SUCCESS` | Expected output was produced with sufficient data |
-| `DEGRADED` | The phase completed with known limitations or partial data |
-| `FAILED` | The phase could not produce usable output |
-
-Business conclusions and infrastructure status are separate concepts. For example, `TOPIC_NOT_FOUND` is a market/research conclusion, while `SEARCH_FAILED` is an infrastructure outcome. They must never be conflated.
-
----
-
-## DOCX Output
-
-Generated documents are placed in `output/`.
-
-The output contains the article draft with Word formatting for headings, paragraphs, lists, emphasis, and supported Markdown structures. Where competitor analysis is available, internal competitor-gap planning information may be included as an appendix.
-
-The original user-supplied topic/title remains the article title. An LLM-recommended SEO title is advisory and must not silently replace the user's requested title.
 
 ---
 
 ## Testing
 
-Run the automated suite with:
+Run the deterministic automated suite with:
 
 ```bash
 venv/bin/pytest tests
 ```
 
-Tests covers:
+The test suite covers areas including:
 
 - target-domain normalization
 - first-party URL detection
 - competitor target-domain exclusion
 - search-provider fallback and isolation
-- URL normalization/deduplication
-- research fallback behaviour
+- URL normalization and deduplication
+- research fallback behavior
 - phase-status propagation
 - competitor coverage extraction
 - topic coverage classification
-- Case 1 vs Case 2 routing
-- search failure vs topic-not-found distinction
-- research quality gate pass/degraded/fail paths
+- competitive vs. whitespace routing
+- search failure vs. topic-not-found distinction
+- research quality-gate paths
 - semantic evidence-support validation
 - source provenance
 - strategy generation
 - writing failure handling
 - DOCX generation
 
-Live smoke tests under `scripts/` may hit external web services and are separate from deterministic unit tests.
+Live smoke tests under `scripts/` can interact with external web services and are separate from deterministic unit tests.
 
 ---
 
-## LICENSE
+## Project Boundaries
 
-Licensed under MIT License
+The engine is responsible for research, market intelligence, content strategy, and draft generation.
 
+It does not treat generated text as automatically publishable content, and it does not require competitor coverage for every topic. Market findings, research evidence, infrastructure failures, and generated recommendations remain distinct throughout the pipeline.
+
+---
+
+## License
+
+Licensed under the MIT License.
