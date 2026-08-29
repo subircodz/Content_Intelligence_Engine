@@ -28,7 +28,7 @@ def run_pipeline(topic: str, client_config: ClientConfig) -> Optional[str]:
     display_info(f"Target: [bold]{client_config.name}[/bold] ({client_config.domain})")
     display_info(f"Target Topic: [bold]{topic}[/bold]")
 
-    settings = Settings()
+    settings = Settings(require_target=False)
     llm_client = LLMClient(base_url=settings.llm_base_url, model=settings.llm_model)
     pipeline_statuses: list[PhaseStatus] = []
 
@@ -52,9 +52,11 @@ def run_pipeline(topic: str, client_config: ClientConfig) -> Optional[str]:
         display_pipeline_completion(False, False)
         return None
 
-    first_party_facts = len(research_result.first_party_facts)
-    external_facts = len(research_result.external_facts)
-    display_phase_result("Research Phase", research_status, f"{first_party_facts} first-party facts, {external_facts} external facts found.")
+    display_phase_result(
+        "Research Phase",
+        research_status,
+        f"{len(research_result.first_party_facts)} first-party facts, {len(research_result.external_facts)} external facts found.",
+    )
 
     display_info("Discovering content competitors...")
     competitor_status = PhaseStatus.FAILED
@@ -113,7 +115,6 @@ def run_pipeline(topic: str, client_config: ClientConfig) -> Optional[str]:
         return None
 
     docx_status = PhaseStatus.FAILED
-    docx_path = None
     try:
         docx_path = save_article_docx(article, topic, competitor_analysis=competitor_analysis)
         if docx_path:
@@ -160,13 +161,21 @@ def main() -> None:
     display_banner()
     display_welcome()
 
-    settings = Settings()
-    domain = args.target_domain or settings.client.domain
-    brand = args.target_brand or settings.client.name
-    sitemaps = tuple(args.sitemaps) if args.sitemaps else settings.client.first_party_sitemaps
-    client_config = ClientConfig(name=brand, domain=domain, first_party_sitemaps=sitemaps)
+    settings = Settings(require_target=not bool(args.target_domain))
+    if args.target_domain:
+        domain = args.target_domain
+        brand = args.target_brand or domain
+        sitemaps = tuple(args.sitemaps or ())
+    else:
+        if settings.client is None:
+            raise ValueError("A target domain is required.")
+        domain = settings.client.domain
+        brand = args.target_brand or settings.client.name
+        sitemaps = tuple(args.sitemaps) if args.sitemaps else settings.client.first_party_sitemaps
 
+    client_config = ClientConfig(name=brand, domain=domain, first_party_sitemaps=sitemaps)
     topic = " ".join(args.topic) if args.topic else prompt_user_topic()
+
     try:
         run_pipeline(topic, client_config)
     except KeyboardInterrupt:
