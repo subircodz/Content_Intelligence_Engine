@@ -13,6 +13,7 @@ from power_win_content.llm.client import LLMClient
 from power_win_content.output.docx_writer import save_article_docx
 from power_win_content.research.domain_researcher import DomainResearcher
 from power_win_content.research.models import PhaseStatus
+from power_win_content.research.quality import ResearchQualityGate, ResearchQualityStatus
 from power_win_content.research.tools.sitemap_fetcher import SitemapFetcher
 from power_win_content.strategy.domain_strategist import DomainContentStrategist
 from power_win_content.ui import (
@@ -81,6 +82,25 @@ def run_pipeline(topic: str, client_config: ClientConfig) -> Optional[str]:
         competitor_status = PhaseStatus.DEGRADED
         display_phase_result("Competitor Analysis", competitor_status, f"Could not complete: {exc}")
     pipeline_statuses.append(competitor_status)
+
+    quality_report = ResearchQualityGate().evaluate(research_result, competitor_analysis)
+    quality_phase_status = (
+        PhaseStatus.SUCCESS
+        if quality_report.status == ResearchQualityStatus.PASS
+        else PhaseStatus.DEGRADED
+        if quality_report.status == ResearchQualityStatus.DEGRADED
+        else PhaseStatus.FAILED
+    )
+    display_phase_result("Research Quality Gate", quality_phase_status, quality_report.rationale)
+    for warning in quality_report.warnings:
+        display_info(f"[yellow]Research warning:[/yellow] {warning}")
+    pipeline_statuses.append(quality_phase_status)
+
+    if quality_report.status == ResearchQualityStatus.FAIL:
+        for reason in quality_report.blocking_reasons:
+            display_error(f"Research quality gate: {reason}")
+        display_pipeline_completion(False, any(s == PhaseStatus.DEGRADED for s in pipeline_statuses))
+        return None
 
     strategy_status = PhaseStatus.FAILED
     brief = None
