@@ -14,7 +14,7 @@ class WebFetcher:
         self,
         timeout: float = 15.0,
         max_content_length: int = 500_000,
-        user_agent: str = "PowerWinContentResearcher/1.0 (+https://power.win)",
+        user_agent: str = "IntelligenceContentResearcher/1.0",
     ) -> None:
         self.timeout = timeout
         self.max_content_length = max_content_length
