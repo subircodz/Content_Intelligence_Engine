@@ -4,7 +4,13 @@ import json
 import logging
 from typing import Optional
 
-from power_win_content.competitors.models import CompetitorAnalysis, ContentGap, OpportunityType, TopicCoverageStatus
+from power_win_content.competitors.models import (
+    CompetitorAnalysis,
+    ContentGap,
+    CoverageAssessment,
+    OpportunityType,
+    TopicCoverageStatus,
+)
 from power_win_content.llm.client import LLMClient
 from power_win_content.research.models import Claim, ClaimStatus, PhaseStatus, ResearchResult
 from power_win_content.strategy.models import AIOStrategy, ContentBrief, GEOStrategy, SEOStrategy
@@ -61,7 +67,7 @@ class ContentStrategist:
             unsupported_claims_count=len(unsupported_claims),
             conflicts_count=len(research.conflicting_information),
             competitor_gaps=competitor_analysis.gaps if competitor_analysis else ContentGap(),
-            market_coverage=competitor_analysis.coverage if competitor_analysis else None,
+            market_coverage=competitor_analysis.coverage if competitor_analysis else CoverageAssessment(),
         )
 
         parsed_count = sum((seo_ok, aio_ok, geo_ok))
