@@ -742,16 +742,7 @@ Live smoke tests under `scripts/` may hit external web services and are separate
 
 ---
 
-## Production Engineering Principles
+## LICENSE
 
-1. **Domain independence:** core code must not contain target-brand, target-domain, or industry assumptions that belong in configuration/adapters.
-2. **LLM provider independence:** the core LLM layer targets an OpenAI-compatible interface and must not depend on a named provider or gateway.
-3. **Evidence integrity:** LLM output is not proof; provenance must be validated against source content semantically, not by exact quotation matching.
-4. **Research quality gates:** incomplete research must be represented explicitly and must not masquerade as market whitespace.
-5. **Case 2 is valid:** confirmed market whitespace must continue to SEO/AIO/GEO strategy and article generation.
-6. **Competitor intelligence is planning input:** competitor gaps are not factual evidence.
-7. **Human editorial control:** generated articles are drafts and require review before publication.
-8. **Bounded execution:** search, fetching, LLM calls, sources, and cost must remain bounded.
-9. **Graceful degradation:** one provider or source failing must not unnecessarily terminate the whole pipeline.
-10. **No access-control bypass:** CAPTCHA, authentication, anti-bot controls, and access restrictions are not bypassed.
-11. **Tests protect invariants:** changes to research, provider, strategy, or writer behaviour require corresponding tests.
+Licensed under MIT License
+
