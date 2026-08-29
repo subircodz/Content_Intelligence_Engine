@@ -29,7 +29,7 @@ def run_pipeline(topic: str, client_config: ClientConfig) -> Optional[str]:
     display_info(f"Target Topic: [bold]{topic}[/bold]")
 
     settings = Settings()
-    llm_client = LLMClient(base_url=settings.omniroute_base_url, model=settings.omniroute_model)
+    llm_client = LLMClient(base_url=settings.llm_base_url, model=settings.llm_model)
     pipeline_statuses: list[PhaseStatus] = []
 
     display_info("Executing Research Phase (first-party and external sources)...")
@@ -52,9 +52,9 @@ def run_pipeline(topic: str, client_config: ClientConfig) -> Optional[str]:
         display_pipeline_completion(False, False)
         return None
 
-    facts = len(research_result.power_win_facts)
-    ext_facts = len(research_result.external_facts)
-    display_phase_result("Research Phase", research_status, f"{facts} first-party facts, {ext_facts} external facts found.")
+    first_party_facts = len(research_result.first_party_facts)
+    external_facts = len(research_result.external_facts)
+    display_phase_result("Research Phase", research_status, f"{first_party_facts} first-party facts, {external_facts} external facts found.")
 
     display_info("Discovering content competitors...")
     competitor_status = PhaseStatus.FAILED
@@ -130,7 +130,7 @@ def run_pipeline(topic: str, client_config: ClientConfig) -> Optional[str]:
         topic=topic,
         research_status=str(research_result.status),
         pipeline_status_label="COMPLETED WITH WARNINGS" if has_warnings else "COMPLETED",
-        power_win_facts_count=len(research_result.power_win_facts),
+        first_party_facts_count=len(research_result.first_party_facts),
         external_facts_count=len(research_result.external_facts),
         gaps_count=len(research_result.research_gaps),
         unsupported_count=len(research_result.unsupported_claims),
@@ -147,6 +147,7 @@ def run_pipeline(topic: str, client_config: ClientConfig) -> Optional[str]:
 
 def main() -> None:
     import argparse
+
     parser = argparse.ArgumentParser(description="Content Intelligence Engine")
     parser.add_argument("topic", nargs="*", help="Article title or topic")
     parser.add_argument("--target-domain", help="Target website domain; overrides TARGET_DOMAIN")
