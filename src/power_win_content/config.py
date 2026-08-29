@@ -11,8 +11,9 @@ class Settings:
     """Runtime settings for the domain-independent content intelligence engine."""
 
     def __init__(self, require_target: bool = True) -> None:
-        self.llm_base_url = os.getenv("LLM_BASE_URL", "http://localhost:20128/v1")
-        self.llm_model = os.getenv("LLM_MODEL", "auto")
+        self.llm_base_url = os.getenv("LLM_BASE_URL")
+        self.llm_model = os.getenv("LLM_MODEL")
+        self.llm_api_key = os.getenv("LLM_API_KEY")
         self.google_api_key = os.getenv("GOOGLE_API_KEY")
         self.google_cse_id = os.getenv("GOOGLE_CSE_ID")
         self.bing_api_key = os.getenv("BING_API_KEY")

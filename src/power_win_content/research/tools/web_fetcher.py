@@ -37,17 +37,34 @@ class WebFetcher:
     def fetch(self, url: str) -> Optional[str]:
         """
         Fetch a URL and return extracted text content.
-        Returns None on failure (network error, HTTP error, timeout, etc.)
+        Returns content even on HTTP errors (for Cloudflare detection).
+        Returns None only on network/timeout errors.
+        """
+        content = self.fetch_raw(url)
+        if content is None:
+            return None
+        return self._extract_text(content)
+
+    def fetch_raw(self, url: str) -> Optional[str]:
+        """
+        Fetch a URL and return raw content (no extraction).
+        Used for sitemaps and other XML content.
         """
         try:
             client = self._get_client()
             response = client.get(url)
-            response.raise_for_status()
 
             # Check content type
             content_type = response.headers.get("content-type", "")
-            if "text/html" not in content_type and "text/plain" not in content_type:
+            # Accept HTML, plain text, XML (sitemaps), and error pages
+            if not any(ct in content_type for ct in ["text/html", "text/plain", "application/xml", "application/xhtml+xml"]):
                 logger.warning("Non-text content type for %s: %s", url, content_type)
+                # Still return content for error pages (e.g., Cloudflare challenge)
+                if response.status_code >= 400:
+                    content = response.text
+                    if len(content) > self.max_content_length:
+                        content = content[: self.max_content_length]
+                    return content
                 return None
 
             # Limit content length
@@ -55,13 +72,10 @@ class WebFetcher:
             if len(content) > self.max_content_length:
                 content = content[: self.max_content_length]
 
-            return self._extract_text(content)
+            return content
 
         except httpx.TimeoutException:
             logger.warning("Timeout fetching %s", url)
-            return None
-        except httpx.HTTPStatusError as e:
-            logger.warning("HTTP error fetching %s: %s", url, e.response.status_code)
             return None
         except httpx.RequestError as e:
             logger.warning("Request error fetching %s: %s", url, e)

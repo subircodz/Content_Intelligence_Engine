@@ -141,7 +141,7 @@ class Researcher:
         except Exception:
             return self._build_fallback_plan(topic)
 
-    def research(self, topic: str) -> tuple[ResearchResult, PhaseStatus]:
+    async def research(self, topic: str) -> tuple[ResearchResult, PhaseStatus]:
         start_time = time.time()
         plan = self.create_plan(topic)
         used_fallback = any(
@@ -165,7 +165,7 @@ class Researcher:
         for question in plan.questions:
             if self._deadline_reached(start_time):
                 break
-            evidence, gaps = self._collect_evidence_for_question(
+            evidence, gaps = await self._collect_evidence_for_question(
                 question,
                 first_party_sources if question.is_first_party_check else [],
             )
@@ -180,7 +180,7 @@ class Researcher:
             if self._deadline_reached(start_time) or first_party_checks >= MAX_FIRST_PARTY_CHECKS or total_sources >= MAX_TOTAL_SOURCES_PROCESSED:
                 break
             question = ResearchQuestion(question=check, priority="high", is_first_party_check=True)
-            evidence, gaps = self._collect_evidence_for_question(question, first_party_sources)
+            evidence, gaps = await self._collect_evidence_for_question(question, first_party_sources)
             all_evidence.extend(evidence)
             result.research_gaps.extend(gaps)
             total_sources += len(evidence)
@@ -191,7 +191,7 @@ class Researcher:
             if self._deadline_reached(start_time) or external_checks >= MAX_EXTERNAL_CHECKS or total_sources >= MAX_TOTAL_SOURCES_PROCESSED:
                 break
             question = ResearchQuestion(question=check, priority="high")
-            evidence, gaps = self._collect_evidence_for_question(question, [])
+            evidence, gaps = await self._collect_evidence_for_question(question, [])
             all_evidence.extend(evidence)
             result.research_gaps.extend(gaps)
             total_sources += len(evidence)
@@ -227,10 +227,10 @@ class Researcher:
     def _deadline_reached(self, start_time: float) -> bool:
         return time.time() - start_time >= MAX_RESEARCH_TIME_SECONDS
 
-    def _collect_evidence_for_question(self, question: ResearchQuestion, first_party_sources: list[Source] | None = None) -> tuple[list, list]:
+    async def _collect_evidence_for_question(self, question: ResearchQuestion, first_party_sources: list[Source] | None = None) -> tuple[list, list]:
         query = self._build_search_query(question)
         try:
-            sources = self.search_tool.search(query)
+            sources = await self.search_tool.search(query)
         except Exception as exc:
             return [], [ResearchGap(question=question.question, reason=f"Search failed: {exc}", attempted_sources=[query], importance=question.priority)]
 

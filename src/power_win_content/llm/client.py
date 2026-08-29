@@ -13,11 +13,13 @@ class LLMClient:
         self,
         base_url: str,
         model: str,
+        api_key: str | None = None,
         max_retries: int = 0,
         request_timeout: float = 60.0,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.model = model
+        self.api_key = api_key
         self.max_retries = max_retries
         self.request_timeout = request_timeout
 
@@ -41,8 +43,13 @@ class LLMClient:
         raise RuntimeError("LLM request failed after retries")
 
     def _send_request(self, prompt: str) -> str:
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+
         response = httpx.post(
             f"{self.base_url}/chat/completions",
+            headers=headers,
             json={
                 "model": self.model,
                 "messages": [{"role": "user", "content": prompt}],

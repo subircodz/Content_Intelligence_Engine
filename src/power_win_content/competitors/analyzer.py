@@ -102,9 +102,22 @@ class CompetitorAnalyzer:
         self.minimum_analysis_required = min(_MIN_ANALYZED_SOURCES, max_competitors)
         self.minimum_domains_required = min(_MIN_ANALYZED_DOMAINS, max_competitors)
 
-    def analyze(self, topic: str) -> tuple[CompetitorAnalysis, PhaseStatus]:
+    async def close(self) -> None:
+        """Close the search tool and fetcher."""
+        if self.search_tool is not None:
+            await self.search_tool.close()
+        if self.fetcher is not None:
+            self.fetcher.close()
+
+    async def __aenter__(self) -> "CompetitorAnalyzer":
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        await self.close()
+
+    async def analyze(self, topic: str) -> tuple[CompetitorAnalysis, PhaseStatus]:
         queries = _topic_to_queries(topic)
-        candidate_urls, successful_queries = self._discover_candidate_urls(queries)
+        candidate_urls, successful_queries = await self._discover_candidate_urls(queries)
         unique_sources = self._select_unique_sources(candidate_urls)
         selected = unique_sources[: self.max_competitors]
 
@@ -153,12 +166,12 @@ class CompetitorAnalyzer:
             return analysis, PhaseStatus.DEGRADED
         return analysis, PhaseStatus.SUCCESS
 
-    def _discover_candidate_urls(self, queries: list[str]) -> tuple[list[CompetitorSource], int]:
+    async def _discover_candidate_urls(self, queries: list[str]) -> tuple[list[CompetitorSource], int]:
         candidates: list[CompetitorSource] = []
         successful_queries = 0
         for query in queries:
             try:
-                sources = self.search_tool.search(query)
+                sources = await self.search_tool.search(query)
                 successful_queries += 1
             except Exception as exc:
                 logger.debug("Competitor search failed for query %r: %s", query, exc)

@@ -14,10 +14,10 @@ class DomainResearcher(Researcher):
         self.client_config = client_config
         super().__init__(llm_client=llm_client, **kwargs)
 
-    def __enter__(self):
+    async def __aenter__(self):
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    async def __aexit__(self, exc_type, exc_value, traceback):
         close = getattr(self.fetcher, "close", None)
         if callable(close):
             close()

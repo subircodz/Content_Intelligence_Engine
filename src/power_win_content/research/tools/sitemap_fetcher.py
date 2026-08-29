@@ -4,11 +4,11 @@ from dataclasses import dataclass
 from typing import Optional
 from urllib.parse import urlparse
 
-import httpx
 from bs4 import BeautifulSoup
 
 from power_win_content.client import ClientConfig
 from power_win_content.research.models import Source, SourceType
+from power_win_content.research.tools.hybrid_fetcher import HybridFetcher
 
 logger = logging.getLogger(__name__)
 
@@ -31,36 +31,24 @@ class SitemapFetcher:
         sitemap_urls: Optional[list[str]] = None,
         timeout: float = 15.0,
         user_agent: str = "ContentIntelligenceEngine/1.0",
+        fetcher: Optional[HybridFetcher] = None,
     ) -> None:
         self.client_config = client_config
         self.sitemap_urls = tuple(sitemap_urls or (client_config.first_party_sitemaps if client_config else ()))
         self.timeout = timeout
         self.user_agent = user_agent
-        self._client: Optional[httpx.Client] = None
-
-    def _get_client(self) -> httpx.Client:
-        if self._client is None:
-            self._client = httpx.Client(
-                timeout=self.timeout,
-                headers={"User-Agent": self.user_agent},
-                follow_redirects=True,
-            )
-        return self._client
+        self._fetcher = fetcher or HybridFetcher()
 
     def fetch_sitemap(self, sitemap_url: str) -> list[SitemapEntry]:
         try:
-            response = self._get_client().get(sitemap_url)
-            response.raise_for_status()
-            return self._parse_sitemap(response.text, sitemap_url)
-        except httpx.TimeoutException:
-            logger.warning("Timeout fetching sitemap: %s", sitemap_url)
-        except httpx.HTTPStatusError as exc:
-            logger.warning("HTTP error fetching sitemap %s: %s", sitemap_url, exc.response.status_code)
-        except httpx.RequestError as exc:
-            logger.warning("Request error fetching sitemap %s: %s", sitemap_url, exc)
+            content = self._fetcher.fetch_raw(sitemap_url)
+            if not content:
+                logger.warning("Failed to fetch sitemap: %s", sitemap_url)
+                return []
+            return self._parse_sitemap(content, sitemap_url)
         except Exception as exc:
-            logger.warning("Unexpected error fetching sitemap %s: %s", sitemap_url, exc)
-        return []
+            logger.warning("Error fetching sitemap %s: %s", sitemap_url, exc)
+            return []
 
     def _parse_sitemap(self, xml_content: str, base_url: str) -> list[SitemapEntry]:
         entries: list[SitemapEntry] = []
@@ -88,6 +76,9 @@ class SitemapFetcher:
     def discover_first_party_sources(self, topic: str = "") -> list[Source]:
         if not self.client_config or not self.sitemap_urls:
             return []
+
+        # Clear failed cache to allow retrying first-party URLs
+        self._fetcher.clear_failed_cache()
 
         all_sources: list[Source] = []
         for sitemap_url in self.sitemap_urls:
@@ -128,9 +119,7 @@ class SitemapFetcher:
         return filtered if len(filtered) >= max(3, len(sources) * 0.1) else sources
 
     def close(self) -> None:
-        if self._client is not None:
-            self._client.close()
-            self._client = None
+        self._fetcher.close()
 
     def __enter__(self) -> "SitemapFetcher":
         return self

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import sys
 from typing import Optional
@@ -14,6 +15,7 @@ from power_win_content.output.docx_writer import save_article_docx
 from power_win_content.research.domain_researcher import DomainResearcher
 from power_win_content.research.models import PhaseStatus
 from power_win_content.research.quality import ResearchQualityGate, ResearchQualityStatus
+from power_win_content.research.tools.hybrid_fetcher import HybridFetcher
 from power_win_content.research.tools.sitemap_fetcher import SitemapFetcher
 from power_win_content.strategy.domain_strategist import DomainContentStrategist
 from power_win_content.ui import (
@@ -25,12 +27,12 @@ from power_win_content.ui import (
 console = Console()
 
 
-def run_pipeline(topic: str, client_config: ClientConfig) -> Optional[str]:
+async def run_pipeline(topic: str, client_config: ClientConfig) -> Optional[str]:
     display_info(f"Target: [bold]{client_config.name}[/bold] ({client_config.domain})")
     display_info(f"Target Topic: [bold]{topic}[/bold]")
 
     settings = Settings(require_target=False)
-    llm_client = LLMClient(base_url=settings.llm_base_url, model=settings.llm_model)
+    llm_client = LLMClient(base_url=settings.llm_base_url, model=settings.llm_model, api_key=settings.llm_api_key)
     pipeline_statuses: list[PhaseStatus] = []
 
     display_info("Executing Research Phase (first-party and external sources)...")
@@ -38,12 +40,14 @@ def run_pipeline(topic: str, client_config: ClientConfig) -> Optional[str]:
     research_result = None
     try:
         with console.status("[bold cyan]Researching target and external sources..."):
-            with DomainResearcher(
+            shared_fetcher = HybridFetcher()
+            async with DomainResearcher(
                 llm_client=llm_client,
                 client_config=client_config,
-                sitemap_fetcher=SitemapFetcher(client_config=client_config),
+                fetcher=shared_fetcher,
+                sitemap_fetcher=SitemapFetcher(client_config=client_config, fetcher=shared_fetcher),
             ) as researcher:
-                research_result, research_status = researcher.research(topic)
+                research_result, research_status = await researcher.research(topic)
     except Exception as exc:
         display_error(f"Research phase failed: {exc}")
     pipeline_statuses.append(research_status)
@@ -63,9 +67,9 @@ def run_pipeline(topic: str, client_config: ClientConfig) -> Optional[str]:
     competitor_status = PhaseStatus.FAILED
     competitor_analysis: Optional[CompetitorAnalysis] = None
     try:
-        analyzer = CompetitorAnalyzer(llm_client=llm_client, client_config=client_config, max_competitors=5)
-        with console.status("[bold cyan]Analyzing competitor content..."):
-            competitor_analysis, competitor_status = analyzer.analyze(topic)
+        async with CompetitorAnalyzer(llm_client=llm_client, client_config=client_config, max_competitors=5) as analyzer:
+            with console.status("[bold cyan]Analyzing competitor content..."):
+                competitor_analysis, competitor_status = await analyzer.analyze(topic)
         if competitor_analysis and competitor_analysis.domains_analyzed:
             display_competitor_domains(competitor_analysis.analyzed_sources)
             display_competitor_summary(
@@ -197,7 +201,7 @@ def main() -> None:
     topic = " ".join(args.topic) if args.topic else prompt_user_topic()
 
     try:
-        run_pipeline(topic, client_config)
+        asyncio.run(run_pipeline(topic, client_config))
     except KeyboardInterrupt:
         console.print("\n[yellow]Pipeline execution cancelled by user.[/yellow]")
         sys.exit(0)

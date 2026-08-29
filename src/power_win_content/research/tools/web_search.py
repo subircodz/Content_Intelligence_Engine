@@ -8,6 +8,7 @@ Playwright-based; a legacy API code path remains for any pre-retirement key
 that still works, but no key is required or expected.
 """
 
+import asyncio
 import logging
 import os
 import re
@@ -25,7 +26,7 @@ logger = logging.getLogger(__name__)
 MAX_RESULTS_PER_PROVIDER = 10
 MAX_COMBINED_RESULTS = 15
 
-# Playwright search timeout (short — just enough to load a search results page)
+# Playwright search timeout (short - just enough to load a search results page)
 PLAYWRIGHT_NAV_TIMEOUT = 15.0
 PLAYWRIGHT_CONTENT_TIMEOUT = 10.0
 PLAYWRIGHT_MIN_SEARCH_LENGTH = 200
@@ -166,13 +167,13 @@ class DuckDuckGoProvider:
 
     provider_name = "duckduckgo"
 
-    def __init__(self, client: httpx.Client) -> None:
+    def __init__(self, client: httpx.AsyncClient) -> None:
         self.client = client
 
-    def search(self, query: str, max_results: int = MAX_RESULTS_PER_PROVIDER) -> list[Source]:
+    async def search(self, query: str, max_results: int = MAX_RESULTS_PER_PROVIDER) -> list[Source]:
         try:
             params = {"q": query, "kl": "us-en"}
-            response = self.client.get("https://html.duckduckgo.com/html/", params=params)
+            response = await self.client.get("https://html.duckduckgo.com/html/", params=params)
             response.raise_for_status()
             return self._parse_results(response.text, query, max_results)
         except httpx.TimeoutException:
@@ -326,7 +327,7 @@ def _is_search_challenge_page(html: str, text: str) -> bool:
 
 
 class _PlaywrightBrowserManager:
-    """Playwright browser manager for search fallback.
+    """Async Playwright browser manager for search fallback.
 
     Manages a shared Chromium process. Each search attempt creates an
     independent browser context with a rotated realistic profile.
@@ -338,12 +339,12 @@ class _PlaywrightBrowserManager:
         self._playwright = None
         self._browser = None
 
-    def _get_browser(self):
+    async def _get_browser(self):
         if self._browser is None:
             if self._playwright is None:
-                from playwright.sync_api import sync_playwright
-                self._playwright = sync_playwright().start()
-            self._browser = self._playwright.chromium.launch(headless=self.headless)
+                from playwright.async_api import async_playwright
+                self._playwright = await async_playwright().start()
+            self._browser = await self._playwright.chromium.launch(headless=self.headless)
         return self._browser
 
     def _next_profile(self) -> _BrowserProfile:
@@ -352,18 +353,18 @@ class _PlaywrightBrowserManager:
         self._profile_index += 1
         return profile
 
-    def fetch_search_page(self, url: str) -> Optional[str]:
+    async def fetch_search_page(self, url: str) -> Optional[str]:
         """Navigate to a URL and return the rendered page HTML.
 
         Creates a fresh browser context with a rotated profile for each
         call so that every search attempt is isolated.
         """
-        browser = self._get_browser()
+        browser = await self._get_browser()
         profile = self._next_profile()
         context = None
         page = None
         try:
-            context = browser.new_context(
+            context = await browser.new_context(
                 user_agent=profile.user_agent,
                 viewport=profile.viewport,
                 locale=profile.locale,
@@ -379,11 +380,11 @@ class _PlaywrightBrowserManager:
                     "Sec-Fetch-User": "?1",
                 },
             )
-            page = context.new_page()
-            page.set_default_timeout(PLAYWRIGHT_NAV_TIMEOUT * 1000)
-            page.set_default_navigation_timeout(PLAYWRIGHT_NAV_TIMEOUT * 1000)
+            page = await context.new_page()
+            page.set_default_timeout(int(PLAYWRIGHT_NAV_TIMEOUT * 1000))
+            page.set_default_navigation_timeout(int(PLAYWRIGHT_NAV_TIMEOUT * 1000))
 
-            response = page.goto(url, wait_until="domcontentloaded")
+            response = await page.goto(url, wait_until="domcontentloaded")
             if response is None:
                 return None
             if response.status >= 400:
@@ -392,11 +393,11 @@ class _PlaywrightBrowserManager:
 
             # Brief wait for dynamic content to settle
             try:
-                page.wait_for_load_state("networkidle", timeout=min(PLAYWRIGHT_CONTENT_TIMEOUT * 1000, 8000))
+                await page.wait_for_load_state("networkidle", timeout=min(int(PLAYWRIGHT_CONTENT_TIMEOUT * 1000), 8000))
             except Exception:
                 pass
 
-            html = page.content()
+            html = await page.content()
             if not html or len(html) < 500:
                 return None
             return html
@@ -407,25 +408,25 @@ class _PlaywrightBrowserManager:
         finally:
             if page:
                 try:
-                    page.close()
+                    await page.close()
                 except Exception:
                     pass
             if context:
                 try:
-                    context.close()
+                    await context.close()
                 except Exception:
                     pass
 
-    def close(self) -> None:
+    async def close(self) -> None:
         if self._browser is not None:
             try:
-                self._browser.close()
+                await self._browser.close()
             except Exception:
                 pass
             self._browser = None
         if self._playwright is not None:
             try:
-                self._playwright.stop()
+                await self._playwright.stop()
             except Exception:
                 pass
             self._playwright = None
@@ -450,18 +451,18 @@ class GoogleSearchProvider:
     def is_configured(self) -> bool:
         return bool(self.api_key and self.cse_id)
 
-    def search(self, query: str, max_results: int = MAX_RESULTS_PER_PROVIDER) -> list[Source]:
+    async def search(self, query: str, max_results: int = MAX_RESULTS_PER_PROVIDER) -> list[Source]:
         # Try API first
         if self.is_configured:
-            api_results = self._search_api(query, max_results)
+            api_results = await self._search_api(query, max_results)
             if api_results:
                 return api_results
             logger.info("Google API returned no results, falling back to Playwright search")
 
         # Fallback to Playwright browser search
-        return self._search_playwright(query, max_results)
+        return await self._search_playwright(query, max_results)
 
-    def _search_api(self, query: str, max_results: int) -> list[Source]:
+    async def _search_api(self, query: str, max_results: int) -> list[Source]:
         try:
             params = {
                 "key": self.api_key,
@@ -469,7 +470,7 @@ class GoogleSearchProvider:
                 "q": query,
                 "num": min(max_results, 10),
             }
-            response = self.client.get(
+            response = await self.client.get(
                 "https://www.googleapis.com/customsearch/v1",
                 params=params,
             )
@@ -489,12 +490,12 @@ class GoogleSearchProvider:
             logger.warning("Google API unexpected error for %s: %s", query, e)
             return []
 
-    def _search_playwright(self, query: str, max_results: int) -> list[Source]:
+    async def _search_playwright(self, query: str, max_results: int) -> list[Source]:
         encoded_query = quote_plus(query)
         url = f"https://www.google.com/search?q={encoded_query}&hl=en"
 
         try:
-            html = self.browser_manager.fetch_search_page(url)
+            html = await self.browser_manager.fetch_search_page(url)
             if not html:
                 logger.warning("Google Playwright returned no content for: %s", query)
                 return []
@@ -579,18 +580,18 @@ class BingSearchProvider:
     def is_configured(self) -> bool:
         return bool(self.api_key)
 
-    def search(self, query: str, max_results: int = MAX_RESULTS_PER_PROVIDER) -> list[Source]:
+    async def search(self, query: str, max_results: int = MAX_RESULTS_PER_PROVIDER) -> list[Source]:
         # Try API first
         if self.is_configured:
-            api_results = self._search_api(query, max_results)
+            api_results = await self._search_api(query, max_results)
             if api_results:
                 return api_results
             logger.info("Bing API returned no results, falling back to Playwright search")
 
         # Fallback to Playwright browser search
-        return self._search_playwright(query, max_results)
+        return await self._search_playwright(query, max_results)
 
-    def _search_api(self, query: str, max_results: int) -> list[Source]:
+    async def _search_api(self, query: str, max_results: int) -> list[Source]:
         try:
             headers = {
                 "Ocp-Apim-Subscription-Key": self.api_key,
@@ -601,7 +602,7 @@ class BingSearchProvider:
                 "count": min(max_results, 50),
                 "mkt": "en-US",
             }
-            response = self.client.get(
+            response = await self.client.get(
                 "https://api.bing.microsoft.com/v7.0/search",
                 headers=headers,
                 params=params,
@@ -622,12 +623,12 @@ class BingSearchProvider:
             logger.warning("Bing API unexpected error for %s: %s", query, e)
             return []
 
-    def _search_playwright(self, query: str, max_results: int) -> list[Source]:
+    async def _search_playwright(self, query: str, max_results: int) -> list[Source]:
         encoded_query = quote_plus(query)
         url = f"https://www.bing.com/search?q={encoded_query}&setlang=en"
 
         try:
-            html = self.browser_manager.fetch_search_page(url)
+            html = await self.browser_manager.fetch_search_page(url)
             if not html:
                 logger.warning("Bing Playwright returned no content for: %s", query)
                 return []
@@ -709,28 +710,28 @@ class WebSearchTool:
         self.timeout = timeout
         self.user_agent = user_agent
         self.max_results = max_results
-        self._client: Optional[httpx.Client] = None
+        self._async_client: Optional[httpx.AsyncClient] = None
         self._browser_manager: Optional[_PlaywrightBrowserManager] = None
         self._providers: Optional[list] = None
 
-    def _get_client(self) -> httpx.Client:
-        if self._client is None:
-            self._client = httpx.Client(
+    def _get_async_client(self) -> httpx.AsyncClient:
+        if self._async_client is None:
+            self._async_client = httpx.AsyncClient(
                 timeout=self.timeout,
                 headers={"User-Agent": self.user_agent},
                 follow_redirects=True,
             )
-        return self._client
+        return self._async_client
 
-    def _get_browser_manager(self) -> _PlaywrightBrowserManager:
+    async def _get_browser_manager(self) -> _PlaywrightBrowserManager:
         if self._browser_manager is None:
             self._browser_manager = _PlaywrightBrowserManager()
         return self._browser_manager
 
-    def _get_providers(self) -> list:
+    async def _get_providers(self) -> list:
         if self._providers is None:
-            client = self._get_client()
-            bm = self._get_browser_manager()
+            client = self._get_async_client()
+            bm = await self._get_browser_manager()
             self._providers = [
                 DuckDuckGoProvider(client),
                 GoogleSearchProvider(client, bm),
@@ -738,14 +739,15 @@ class WebSearchTool:
             ]
         return self._providers
 
-    def search(self, query: str) -> list[Source]:
+    async def search(self, query: str) -> list[Source]:
         """Search using all configured providers, merge and deduplicate results."""
         all_sources: list[Source] = []
         seen_urls: set[str] = set()
 
-        for provider in self._get_providers():
+        providers = await self._get_providers()
+        for provider in providers:
             try:
-                results = provider.search(query, max_results=self.max_results)
+                results = await provider.search(query, max_results=self.max_results)
                 for source in results:
                     if source.url is None:
                         continue
@@ -762,17 +764,17 @@ class WebSearchTool:
 
         return all_sources
 
-    def close(self) -> None:
+    async def close(self) -> None:
         """Close the underlying HTTP client and browser."""
         if self._browser_manager is not None:
-            self._browser_manager.close()
+            await self._browser_manager.close()
             self._browser_manager = None
-        if self._client is not None:
-            self._client.close()
-            self._client = None
+        if self._async_client is not None:
+            await self._async_client.aclose()
+            self._async_client = None
 
-    def __enter__(self) -> "WebSearchTool":
+    async def __aenter__(self) -> "WebSearchTool":
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        self.close()
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        await self.close()
