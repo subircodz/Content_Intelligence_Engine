@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from power_win_content.competitors.models import ContentGap
+from power_win_content.competitors.models import ContentGap, CoverageAssessment
 
 
 class SEOStrategy(BaseModel):
@@ -54,6 +54,7 @@ class ContentBrief(BaseModel):
     unsupported_claims_count: int = Field(default=0)
     conflicts_count: int = Field(default=0)
     competitor_gaps: ContentGap = Field(default_factory=ContentGap)
+    market_coverage: CoverageAssessment = Field(default_factory=CoverageAssessment)
 
     def get_all_recommended_facts(self) -> list[str]:
         return self.aio.important_factual_statements + self.geo.first_party_facts + self.geo.unique_information
