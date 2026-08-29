@@ -2,9 +2,9 @@
 
 from urllib.parse import urlparse
 
-from power_win_content.client import ClientConfig
-from power_win_content.research.models import ResearchPlan, ResearchQuestion, Source, SourceType
-from power_win_content.research.researcher import Researcher
+from intelligence_content_engine.client import ClientConfig
+from intelligence_content_engine.research.models import ResearchPlan, ResearchQuestion, Source, SourceType
+from intelligence_content_engine.research.researcher import Researcher
 
 
 class DomainResearcher(Researcher):

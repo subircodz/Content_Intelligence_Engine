@@ -6,7 +6,7 @@ from rich.prompt import Prompt
 from rich.table import Table
 from rich.text import Text
 
-from power_win_content.research.models import PhaseStatus
+from intelligence_content_engine.research.models import PhaseStatus
 
 console = Console()
 

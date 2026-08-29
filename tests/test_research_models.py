@@ -1,7 +1,7 @@
 from pydantic import ValidationError
 import pytest
 
-from power_win_content.research.models import (
+from intelligence_content_engine.research.models import (
     Claim, ClaimStatus, Evidence, InformationNature, ResearchGap, ResearchPlan,
     ResearchQuestion, ResearchResult, Source, SourceType,
 )

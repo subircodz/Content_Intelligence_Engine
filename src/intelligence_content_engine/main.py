@@ -5,20 +5,20 @@ from typing import Optional
 
 from rich.console import Console
 
-from power_win_content.agents.domain_content_writer import DomainContentWriterAgent
-from power_win_content.client import ClientConfig
-from power_win_content.competitors.analyzer import CompetitorAnalyzer
-from power_win_content.competitors.models import CompetitorAnalysis
-from power_win_content.config import Settings
-from power_win_content.llm.client import LLMClient
-from power_win_content.output.docx_writer import save_article_docx
-from power_win_content.research.domain_researcher import DomainResearcher
-from power_win_content.research.models import PhaseStatus
-from power_win_content.research.quality import ResearchQualityGate, ResearchQualityStatus
-from power_win_content.research.tools.hybrid_fetcher import HybridFetcher
-from power_win_content.research.tools.sitemap_fetcher import SitemapFetcher
-from power_win_content.strategy.domain_strategist import DomainContentStrategist
-from power_win_content.ui import (
+from intelligence_content_engine.agents.domain_content_writer import DomainContentWriterAgent
+from intelligence_content_engine.client import ClientConfig
+from intelligence_content_engine.competitors.analyzer import CompetitorAnalyzer
+from intelligence_content_engine.competitors.models import CompetitorAnalysis
+from intelligence_content_engine.config import Settings
+from intelligence_content_engine.llm.client import LLMClient
+from intelligence_content_engine.output.docx_writer import save_article_docx
+from intelligence_content_engine.research.domain_researcher import DomainResearcher
+from intelligence_content_engine.research.models import PhaseStatus
+from intelligence_content_engine.research.quality import ResearchQualityGate, ResearchQualityStatus
+from intelligence_content_engine.research.tools.hybrid_fetcher import HybridFetcher
+from intelligence_content_engine.research.tools.sitemap_fetcher import SitemapFetcher
+from intelligence_content_engine.strategy.domain_strategist import DomainContentStrategist
+from intelligence_content_engine.ui import (
     display_banner, display_competitor_domains, display_competitor_summary,
     display_error, display_info, display_pipeline_completion, display_phase_result,
     display_summary_table, display_welcome, prompt_user_topic,

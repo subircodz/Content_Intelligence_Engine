@@ -1,7 +1,7 @@
 """Target-domain writer facade."""
 
-from power_win_content.agents.content_writer import ContentWriterAgent
-from power_win_content.client import ClientConfig
+from intelligence_content_engine.agents.content_writer import ContentWriterAgent
+from intelligence_content_engine.client import ClientConfig
 
 
 class DomainContentWriterAgent(ContentWriterAgent):

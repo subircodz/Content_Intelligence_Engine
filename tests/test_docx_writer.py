@@ -3,7 +3,7 @@ from pathlib import Path
 
 from docx import Document
 
-from power_win_content.output.docx_writer import (
+from intelligence_content_engine.output.docx_writer import (
     markdown_to_docx,
     safe_filename,
     save_article_docx,
@@ -84,7 +84,7 @@ def test_docx_generation_error_returns_none(tmp_path: Path) -> None:
     # Force an error by passing an invalid title type scenario via monkeypatching Document.save
     from unittest.mock import patch
 
-    with patch("power_win_content.output.docx_writer.Document") as mock_doc_cls:
+    with patch("intelligence_content_engine.output.docx_writer.Document") as mock_doc_cls:
         mock_doc_cls.return_value.save.side_effect = OSError("disk full")
         result = save_article_docx("Article", "Title", output_dir=str(tmp_path))
         assert result is None

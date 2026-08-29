@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock, patch
 
-from power_win_content.config import Settings
-from power_win_content.llm.client import LLMClient
+from intelligence_content_engine.config import Settings
+from intelligence_content_engine.llm.client import LLMClient
 
 
 def test_llm_client_generates_response() -> None:

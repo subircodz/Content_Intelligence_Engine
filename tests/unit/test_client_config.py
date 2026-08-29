@@ -1,4 +1,4 @@
-from power_win_content.client import ClientConfig
+from intelligence_content_engine.client import ClientConfig
 
 
 def test_domain_normalization():

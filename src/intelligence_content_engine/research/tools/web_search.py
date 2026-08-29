@@ -19,7 +19,7 @@ from urllib.parse import unquote, urlparse, parse_qs, quote_plus
 import httpx
 from bs4 import BeautifulSoup
 
-from power_win_content.research.models import Source, SourceType
+from intelligence_content_engine.research.models import Source, SourceType
 
 logger = logging.getLogger(__name__)
 

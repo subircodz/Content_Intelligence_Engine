@@ -2,7 +2,7 @@ import os
 
 from dotenv import load_dotenv
 
-from power_win_content.client import ClientConfig
+from intelligence_content_engine.client import ClientConfig
 
 load_dotenv()
 

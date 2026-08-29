@@ -4,8 +4,8 @@ from enum import Enum
 
 from pydantic import BaseModel, Field
 
-from power_win_content.competitors.models import CompetitorAnalysis, TopicCoverageStatus
-from power_win_content.research.models import ClaimStatus, ResearchResult
+from intelligence_content_engine.competitors.models import CompetitorAnalysis, TopicCoverageStatus
+from intelligence_content_engine.research.models import ClaimStatus, ResearchResult
 
 
 class ResearchQualityStatus(str, Enum):

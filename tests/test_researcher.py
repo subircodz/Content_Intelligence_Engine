@@ -1,8 +1,8 @@
 import hashlib
 from unittest.mock import Mock
 
-from power_win_content.research.models import PhaseStatus, ResearchResult, Source, SourceType
-from power_win_content.research.researcher import Researcher
+from intelligence_content_engine.research.models import PhaseStatus, ResearchResult, Source, SourceType
+from intelligence_content_engine.research.researcher import Researcher
 
 
 def test_fallback_plan_is_domain_independent():

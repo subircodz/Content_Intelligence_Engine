@@ -7,8 +7,8 @@ import re
 from typing import Optional
 from urllib.parse import urlparse
 
-from power_win_content.client import ClientConfig
-from power_win_content.competitors.models import (
+from intelligence_content_engine.client import ClientConfig
+from intelligence_content_engine.competitors.models import (
     CompetitorAnalysis,
     CompetitorSource,
     ContentGap,
@@ -18,10 +18,10 @@ from power_win_content.competitors.models import (
     OpportunityType,
     TopicCoverageStatus,
 )
-from power_win_content.llm.client import LLMClient
-from power_win_content.research.models import PhaseStatus
-from power_win_content.research.tools.web_fetcher import WebFetcher
-from power_win_content.research.tools.web_search import WebSearchTool
+from intelligence_content_engine.llm.client import LLMClient
+from intelligence_content_engine.research.models import PhaseStatus
+from intelligence_content_engine.research.tools.web_fetcher import WebFetcher
+from intelligence_content_engine.research.tools.web_search import WebSearchTool
 
 logger = logging.getLogger(__name__)
 

@@ -3,7 +3,7 @@
 import os
 from unittest.mock import patch
 
-from power_win_content.config import Settings
+from intelligence_content_engine.config import Settings
 
 
 class TestSettingsLLM:

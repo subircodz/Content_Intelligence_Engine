@@ -1,9 +1,9 @@
 import logging
 from typing import Optional
 
-from power_win_content.research.tools.web_fetcher import WebFetcher
-from power_win_content.research.tools.browser_fetcher import BrowserFetcher
-from power_win_content.research.tools.cloudflare_fetcher import CloudflareBypassFetcher
+from intelligence_content_engine.research.tools.web_fetcher import WebFetcher
+from intelligence_content_engine.research.tools.browser_fetcher import BrowserFetcher
+from intelligence_content_engine.research.tools.cloudflare_fetcher import CloudflareBypassFetcher
 
 logger = logging.getLogger(__name__)
 

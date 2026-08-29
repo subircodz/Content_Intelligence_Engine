@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from power_win_content.competitors.models import ContentGap, CoverageAssessment
+from intelligence_content_engine.competitors.models import ContentGap, CoverageAssessment
 
 
 class SEOStrategy(BaseModel):

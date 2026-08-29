@@ -6,13 +6,13 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from power_win_content.agents.domain_content_writer import DomainContentWriterAgent
-from power_win_content.competitors.analyzer import CompetitorAnalyzer
-from power_win_content.config import Settings
-from power_win_content.llm.client import LLMClient
-from power_win_content.research.domain_researcher import DomainResearcher
-from power_win_content.research.tools import HybridFetcher, SitemapFetcher, WebSearchTool
-from power_win_content.strategy.domain_strategist import DomainContentStrategist
+from intelligence_content_engine.agents.domain_content_writer import DomainContentWriterAgent
+from intelligence_content_engine.competitors.analyzer import CompetitorAnalyzer
+from intelligence_content_engine.config import Settings
+from intelligence_content_engine.llm.client import LLMClient
+from intelligence_content_engine.research.domain_researcher import DomainResearcher
+from intelligence_content_engine.research.tools import HybridFetcher, SitemapFetcher, WebSearchTool
+from intelligence_content_engine.strategy.domain_strategist import DomainContentStrategist
 
 
 def main() -> int:

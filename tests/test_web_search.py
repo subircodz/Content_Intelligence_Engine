@@ -7,8 +7,8 @@ import os
 
 import httpx
 
-from power_win_content.research.models import Source, SourceType
-from power_win_content.research.tools.web_search import (
+from intelligence_content_engine.research.models import Source, SourceType
+from intelligence_content_engine.research.tools.web_search import (
     WebSearchTool,
     DuckDuckGoProvider,
     GoogleSearchProvider,
@@ -455,8 +455,8 @@ class TestMultiProviderSearch:
 
     def test_competitor_search_uses_same_mechanism(self):
         """Competitor analyzer's search uses the same WebSearchTool."""
-        from power_win_content.competitors.analyzer import CompetitorAnalyzer
-        from power_win_content.llm.client import LLMClient
+        from intelligence_content_engine.competitors.analyzer import CompetitorAnalyzer
+        from intelligence_content_engine.llm.client import LLMClient
 
         mock_llm = Mock(spec=LLMClient)
         mock_search = Mock(spec=WebSearchTool)
@@ -552,7 +552,7 @@ class TestBrowserProfiles:
             assert "text/html" in p.accept
 
     def test_profile_rotation(self):
-        from power_win_content.research.tools.web_search import _PlaywrightBrowserManager
+        from intelligence_content_engine.research.tools.web_search import _PlaywrightBrowserManager
         bm = _PlaywrightBrowserManager()
         p1 = bm._next_profile()
         p2 = bm._next_profile()
@@ -967,7 +967,7 @@ class TestPlaywrightBrowserLifecycle:
         """web_search.py must not use Rich console for Playwright operations."""
         source = inspect.getsource(
             __import__(
-                "power_win_content.research.tools.web_search", fromlist=["web_search"]
+                "intelligence_content_engine.research.tools.web_search", fromlist=["web_search"]
             )
         )
         assert "from rich" not in source

@@ -3,9 +3,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from power_win_content.research.tools.browser_fetcher import BrowserFetcher
-from power_win_content.research.tools.hybrid_fetcher import HybridFetcher
-from power_win_content.research.tools.web_fetcher import WebFetcher
+from intelligence_content_engine.research.tools.browser_fetcher import BrowserFetcher
+from intelligence_content_engine.research.tools.hybrid_fetcher import HybridFetcher
+from intelligence_content_engine.research.tools.web_fetcher import WebFetcher
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +80,7 @@ class TestBrowserFetcher:
         assert fetcher.headless is False
         fetcher.close()
 
-    @patch("power_win_content.research.tools.browser_fetcher.sync_playwright")
+    @patch("intelligence_content_engine.research.tools.browser_fetcher.sync_playwright")
     @patch("time.sleep", return_value=None)  # Speed up test
     def test_fetch_spa_shell_triggers_wait(self, mock_sleep, mock_sync_playwright):
         """Test that SPA shell content triggers waiting logic."""
@@ -131,7 +131,7 @@ class TestBrowserFetcher:
         assert "editorial methodology" in result.lower()
         fetcher.close()
 
-    @patch("power_win_content.research.tools.browser_fetcher.sync_playwright")
+    @patch("intelligence_content_engine.research.tools.browser_fetcher.sync_playwright")
     @patch("time.sleep", return_value=None)  # Speed up test
     def test_fetch_cloudflare_challenge_waits(self, mock_sleep, mock_sync_playwright):
         """Test that Cloudflare challenge page triggers waiting."""
@@ -180,7 +180,7 @@ class TestBrowserFetcher:
         assert "editorial methodology" in result.lower()
         fetcher.close()
 
-    @patch("power_win_content.research.tools.browser_fetcher.sync_playwright")
+    @patch("intelligence_content_engine.research.tools.browser_fetcher.sync_playwright")
     def test_fetch_timeout_handled(self, mock_sync_playwright):
         """Test that browser timeout is handled gracefully."""
         mock_playwright = MagicMock()
@@ -211,7 +211,7 @@ class TestBrowserFetcher:
         assert result is None
         fetcher.close()
 
-    @patch("power_win_content.research.tools.browser_fetcher.sync_playwright")
+    @patch("intelligence_content_engine.research.tools.browser_fetcher.sync_playwright")
     def test_fetch_navigation_error_handled(self, mock_sync_playwright):
         """Test that navigation errors are handled."""
         mock_playwright = MagicMock()
@@ -254,7 +254,7 @@ class TestBrowserFetcher:
 
     def test_context_manager(self):
         """Test context manager usage."""
-        with patch("power_win_content.research.tools.browser_fetcher.sync_playwright") as mock_sync:
+        with patch("intelligence_content_engine.research.tools.browser_fetcher.sync_playwright") as mock_sync:
             mock_playwright = MagicMock()
             mock_browser = MagicMock()
             mock_sync.return_value.start.return_value = mock_playwright

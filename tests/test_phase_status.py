@@ -3,15 +3,15 @@ from unittest.mock import Mock, patch
 
 import httpx
 
-from power_win_content.llm.client import LLMClient
-from power_win_content.research.models import PhaseStatus, ResearchPlan, ResearchResult
-from power_win_content.research.researcher import Researcher
-from power_win_content.research.tools import WebSearchTool, WebFetcher, SitemapFetcher
-from power_win_content.competitors.analyzer import CompetitorAnalyzer
-from power_win_content.strategy.strategist import ContentStrategist
-from power_win_content.agents.content_writer import ContentWriterAgent
-from power_win_content.strategy.models import AIOStrategy, ContentBrief, GEOStrategy, SEOStrategy
-from power_win_content.output.docx_writer import save_article_docx
+from intelligence_content_engine.llm.client import LLMClient
+from intelligence_content_engine.research.models import PhaseStatus, ResearchPlan, ResearchResult
+from intelligence_content_engine.research.researcher import Researcher
+from intelligence_content_engine.research.tools import WebSearchTool, WebFetcher, SitemapFetcher
+from intelligence_content_engine.competitors.analyzer import CompetitorAnalyzer
+from intelligence_content_engine.strategy.strategist import ContentStrategist
+from intelligence_content_engine.agents.content_writer import ContentWriterAgent
+from intelligence_content_engine.strategy.models import AIOStrategy, ContentBrief, GEOStrategy, SEOStrategy
+from intelligence_content_engine.output.docx_writer import save_article_docx
 from pathlib import Path
 
 
@@ -50,7 +50,7 @@ def test_competitor_success_with_sources():
         json.dumps({"missing_topics": ["A"], "missing_questions": [], "missing_entities": [], "missing_comparisons": [], "missing_statistics": [], "missing_user_concerns": [], "missing_angles": [], "competitor_topics_absent_from_ours": []}),
     ]
     mock_search = Mock(spec=WebSearchTool)
-    from power_win_content.research.models import Source, SourceType
+    from intelligence_content_engine.research.models import Source, SourceType
     mock_search.search.return_value = [Source(name="Guide", url="https://example.com/guide", source_type=SourceType.SECONDARY)]
     mock_fetcher = Mock(spec=WebFetcher)
     mock_fetcher.fetch.return_value = "Some content about guide"
@@ -103,14 +103,14 @@ def test_docx_failure_on_empty():
 
 
 def test_display_phase_result_runs():
-    from power_win_content.ui import display_phase_result
+    from intelligence_content_engine.ui import display_phase_result
     display_phase_result("Test", PhaseStatus.SUCCESS, "detail")
     display_phase_result("Test", PhaseStatus.DEGRADED, "detail")
     display_phase_result("Test", PhaseStatus.FAILED, "detail")
 
 
 def test_display_pipeline_completion_runs():
-    from power_win_content.ui import display_pipeline_completion
+    from intelligence_content_engine.ui import display_pipeline_completion
     display_pipeline_completion(docx_created=True, has_warnings=False)
     display_pipeline_completion(docx_created=True, has_warnings=True)
     display_pipeline_completion(docx_created=False, has_warnings=False)

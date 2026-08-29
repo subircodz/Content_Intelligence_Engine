@@ -2,13 +2,13 @@
 Content Strategy Package - SEO, AIO, and GEO content strategy layer.
 """
 
-from power_win_content.strategy.models import (
+from intelligence_content_engine.strategy.models import (
     AIOStrategy,
     ContentBrief,
     GEOStrategy,
     SEOStrategy,
 )
-from power_win_content.strategy.strategist import ContentStrategist
+from intelligence_content_engine.strategy.strategist import ContentStrategist
 
 __all__ = [
     "ContentStrategist",

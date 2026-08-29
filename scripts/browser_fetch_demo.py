@@ -10,7 +10,7 @@ import os
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from power_win_content.research.tools import HybridFetcher, BrowserFetcher, WebFetcher
+from intelligence_content_engine.research.tools import HybridFetcher, BrowserFetcher, WebFetcher
 
 
 def test_url(fetcher, url: str, name: str):

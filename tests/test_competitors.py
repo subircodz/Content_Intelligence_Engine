@@ -1,19 +1,19 @@
 import json
 from unittest.mock import Mock
 
-from power_win_content.client import ClientConfig
-from power_win_content.competitors.analyzer import CompetitorAnalyzer
-from power_win_content.competitors.models import (
+from intelligence_content_engine.client import ClientConfig
+from intelligence_content_engine.competitors.analyzer import CompetitorAnalyzer
+from intelligence_content_engine.competitors.models import (
     CompetitorAnalysis,
     CompetitorSource,
     ContentGap,
     OpportunityType,
     TopicCoverageStatus,
 )
-from power_win_content.llm.client import LLMClient
-from power_win_content.research.models import PhaseStatus, Source, SourceType
-from power_win_content.research.tools.web_fetcher import WebFetcher
-from power_win_content.research.tools.web_search import WebSearchTool
+from intelligence_content_engine.llm.client import LLMClient
+from intelligence_content_engine.research.models import PhaseStatus, Source, SourceType
+from intelligence_content_engine.research.tools.web_fetcher import WebFetcher
+from intelligence_content_engine.research.tools.web_search import WebSearchTool
 
 
 def _make_source(name: str, url: str) -> Source:
@@ -215,7 +215,7 @@ class TestCompetitorAnalyzer:
 class TestStrategyCoverageIntegration:
     def test_brief_receives_market_coverage(self) -> None:
         from unittest.mock import Mock
-        from power_win_content.strategy.strategist import ContentStrategist
+        from intelligence_content_engine.strategy.strategist import ContentStrategist
 
         llm = Mock(spec=LLMClient)
         llm.generate.side_effect = [

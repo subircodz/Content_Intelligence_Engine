@@ -6,9 +6,9 @@ from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup
 
-from power_win_content.client import ClientConfig
-from power_win_content.research.models import Source, SourceType
-from power_win_content.research.tools.hybrid_fetcher import HybridFetcher
+from intelligence_content_engine.client import ClientConfig
+from intelligence_content_engine.research.models import Source, SourceType
+from intelligence_content_engine.research.tools.hybrid_fetcher import HybridFetcher
 
 logger = logging.getLogger(__name__)
 

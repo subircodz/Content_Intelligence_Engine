@@ -6,10 +6,10 @@ from unittest.mock import Mock, patch, MagicMock
 
 import pytest
 
-from power_win_content.agents.content_writer import ContentWriterAgent, _is_transient_error
-from power_win_content.llm.client import LLMClient
-from power_win_content.research.models import PhaseStatus
-from power_win_content.strategy.models import AIOStrategy, ContentBrief, GEOStrategy, SEOStrategy
+from intelligence_content_engine.agents.content_writer import ContentWriterAgent, _is_transient_error
+from intelligence_content_engine.llm.client import LLMClient
+from intelligence_content_engine.research.models import PhaseStatus
+from intelligence_content_engine.strategy.models import AIOStrategy, ContentBrief, GEOStrategy, SEOStrategy
 
 
 def _make_brief(title: str = "Test Topic") -> ContentBrief:
@@ -95,7 +95,7 @@ class TestWritingRetrySuccess:
         ]
 
         writer = ContentWriterAgent(llm_client=mock_llm)
-        with patch("power_win_content.agents.content_writer.time.sleep") as mock_sleep:
+        with patch("intelligence_content_engine.agents.content_writer.time.sleep") as mock_sleep:
             article = writer.generate(_make_brief())
 
         assert article == "Recovered article."
@@ -112,7 +112,7 @@ class TestWritingRetrySuccess:
         ]
 
         writer = ContentWriterAgent(llm_client=mock_llm)
-        with patch("power_win_content.agents.content_writer.time.sleep") as mock_sleep:
+        with patch("intelligence_content_engine.agents.content_writer.time.sleep") as mock_sleep:
             article = writer.generate(_make_brief())
 
         assert article == "Recovered article."
@@ -128,7 +128,7 @@ class TestWritingRetrySuccess:
         ]
 
         writer = ContentWriterAgent(llm_client=mock_llm)
-        with patch("power_win_content.agents.content_writer.time.sleep") as mock_sleep:
+        with patch("intelligence_content_engine.agents.content_writer.time.sleep") as mock_sleep:
             article = writer.generate(_make_brief())
 
         assert article == "Final article."
@@ -142,7 +142,7 @@ class TestWritingRetrySuccess:
         mock_llm.generate.return_value = ""
 
         writer = ContentWriterAgent(llm_client=mock_llm)
-        with patch("power_win_content.agents.content_writer.time.sleep") as mock_sleep:
+        with patch("intelligence_content_engine.agents.content_writer.time.sleep") as mock_sleep:
             article = writer.generate(_make_brief())
 
         assert article == ""
@@ -154,7 +154,7 @@ class TestWritingRetrySuccess:
         mock_llm.generate.side_effect = httpx.TimeoutException("persistent timeout")
 
         writer = ContentWriterAgent(llm_client=mock_llm)
-        with patch("power_win_content.agents.content_writer.time.sleep") as mock_sleep:
+        with patch("intelligence_content_engine.agents.content_writer.time.sleep") as mock_sleep:
             with pytest.raises(httpx.TimeoutException):
                 article = writer.generate(_make_brief())
 
@@ -167,7 +167,7 @@ class TestWritingRetrySuccess:
         mock_llm.generate.side_effect = ["   ", " \n ", "Real content"]
 
         writer = ContentWriterAgent(llm_client=mock_llm)
-        with patch("power_win_content.agents.content_writer.time.sleep") as mock_sleep:
+        with patch("intelligence_content_engine.agents.content_writer.time.sleep") as mock_sleep:
             article = writer.generate(_make_brief())
 
         assert article == "Real content"
@@ -184,7 +184,7 @@ class TestWritingRetrySuccess:
         ]
 
         writer = ContentWriterAgent(llm_client=mock_llm)
-        with patch("power_win_content.agents.content_writer.time.sleep") as mock_sleep:
+        with patch("intelligence_content_engine.agents.content_writer.time.sleep") as mock_sleep:
             writer.generate(_make_brief())
 
         delays = [call.args[0] for call in mock_sleep.call_args_list]
@@ -227,8 +227,8 @@ class TestWritingRetrySuccess:
         ]
 
         writer = ContentWriterAgent(llm_client=mock_llm)
-        with patch("power_win_content.agents.content_writer.time.sleep"):
-            with patch("power_win_content.agents.content_writer.logger") as mock_logger:
+        with patch("intelligence_content_engine.agents.content_writer.time.sleep"):
+            with patch("intelligence_content_engine.agents.content_writer.logger") as mock_logger:
                 writer.generate(_make_brief())
 
         mock_logger.debug.assert_called()
@@ -242,35 +242,35 @@ class TestWritingRetrySuccess:
 
 class TestPipelineStatus:
     def test_display_pipeline_completion_success(self):
-        from power_win_content.ui import display_pipeline_completion
+        from intelligence_content_engine.ui import display_pipeline_completion
         display_pipeline_completion(docx_created=True, has_warnings=False)
 
     def test_display_pipeline_completion_with_warnings(self):
-        from power_win_content.ui import display_pipeline_completion
+        from intelligence_content_engine.ui import display_pipeline_completion
         display_pipeline_completion(docx_created=True, has_warnings=True)
 
     def test_display_pipeline_completion_failed(self):
-        from power_win_content.ui import display_pipeline_completion
+        from intelligence_content_engine.ui import display_pipeline_completion
         display_pipeline_completion(docx_created=False, has_warnings=False)
 
     def test_display_pipeline_completion_failed_with_warnings(self):
-        from power_win_content.ui import display_pipeline_completion
+        from intelligence_content_engine.ui import display_pipeline_completion
         display_pipeline_completion(docx_created=False, has_warnings=True)
 
     def test_phase_result_success(self):
-        from power_win_content.ui import display_phase_result
+        from intelligence_content_engine.ui import display_phase_result
         display_phase_result("Research Phase", PhaseStatus.SUCCESS, "details")
 
     def test_phase_result_degraded_shows_warning(self):
-        from power_win_content.ui import display_phase_result
+        from intelligence_content_engine.ui import display_phase_result
         display_phase_result("Competitor Analysis", PhaseStatus.DEGRADED, "partial failure")
 
     def test_phase_result_failed(self):
-        from power_win_content.ui import display_phase_result
+        from intelligence_content_engine.ui import display_phase_result
         display_phase_result("Writing Phase", PhaseStatus.FAILED, "no article generated")
 
     def test_summary_table_completed(self):
-        from power_win_content.ui import display_summary_table
+        from intelligence_content_engine.ui import display_summary_table
         display_summary_table(
             topic="Test", research_status="verified", pipeline_status_label="COMPLETED",
             power_win_facts_count=3, external_facts_count=2, gaps_count=1,
@@ -279,7 +279,7 @@ class TestPipelineStatus:
         )
 
     def test_summary_table_completed_with_warnings(self):
-        from power_win_content.ui import display_summary_table
+        from intelligence_content_engine.ui import display_summary_table
         display_summary_table(
             topic="Test", research_status="uncertain", pipeline_status_label="COMPLETED WITH WARNINGS",
             power_win_facts_count=0, external_facts_count=1, gaps_count=3,
@@ -289,7 +289,7 @@ class TestPipelineStatus:
         )
 
     def test_summary_table_failed(self):
-        from power_win_content.ui import display_summary_table
+        from intelligence_content_engine.ui import display_summary_table
         display_summary_table(
             topic="Test", research_status="unsupported", pipeline_status_label="FAILED",
             power_win_facts_count=0, external_facts_count=0, gaps_count=0,
@@ -299,7 +299,7 @@ class TestPipelineStatus:
 
     def test_summary_table_no_technical_enums(self):
         """Summary table must not contain raw ClaimStatus enum text."""
-        from power_win_content.ui import display_summary_table
+        from intelligence_content_engine.ui import display_summary_table
         # If ClaimStatus.UNCERTAIN appears in output, the test would need
         # to capture console output — this test ensures the function runs
         # without crashing with any status string.

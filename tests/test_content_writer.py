@@ -1,8 +1,8 @@
 from unittest.mock import Mock
 
-from power_win_content.agents.content_writer import ContentWriterAgent
-from power_win_content.llm.client import LLMClient
-from power_win_content.strategy.models import AIOStrategy, ContentBrief, GEOStrategy, SEOStrategy
+from intelligence_content_engine.agents.content_writer import ContentWriterAgent
+from intelligence_content_engine.llm.client import LLMClient
+from intelligence_content_engine.strategy.models import AIOStrategy, ContentBrief, GEOStrategy, SEOStrategy
 
 
 def test_content_writer_generates_article_from_brief():

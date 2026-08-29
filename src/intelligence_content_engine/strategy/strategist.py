@@ -4,16 +4,16 @@ import json
 import logging
 from typing import Optional
 
-from power_win_content.competitors.models import (
+from intelligence_content_engine.competitors.models import (
     CompetitorAnalysis,
     ContentGap,
     CoverageAssessment,
     OpportunityType,
     TopicCoverageStatus,
 )
-from power_win_content.llm.client import LLMClient
-from power_win_content.research.models import Claim, ClaimStatus, PhaseStatus, ResearchResult
-from power_win_content.strategy.models import AIOStrategy, ContentBrief, GEOStrategy, SEOStrategy
+from intelligence_content_engine.llm.client import LLMClient
+from intelligence_content_engine.research.models import Claim, ClaimStatus, PhaseStatus, ResearchResult
+from intelligence_content_engine.strategy.models import AIOStrategy, ContentBrief, GEOStrategy, SEOStrategy
 
 logger = logging.getLogger(__name__)
 

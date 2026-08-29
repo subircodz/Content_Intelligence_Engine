@@ -4,8 +4,8 @@ from typing import Union
 
 import httpx
 
-from power_win_content.llm.client import LLMClient
-from power_win_content.strategy.models import ContentBrief
+from intelligence_content_engine.llm.client import LLMClient
+from intelligence_content_engine.strategy.models import ContentBrief
 
 logger = logging.getLogger(__name__)
 

@@ -5,8 +5,8 @@ import time
 from collections import defaultdict
 from typing import Optional
 
-from power_win_content.llm.client import LLMClient
-from power_win_content.research.models import (
+from intelligence_content_engine.llm.client import LLMClient
+from intelligence_content_engine.research.models import (
     Claim,
     ClaimStatus,
     ConflictingClaim,
@@ -20,7 +20,7 @@ from power_win_content.research.models import (
     Source,
     SourceType,
 )
-from power_win_content.research.tools import HybridFetcher, SitemapFetcher, WebFetcher, WebSearchTool
+from intelligence_content_engine.research.tools import HybridFetcher, SitemapFetcher, WebFetcher, WebSearchTool
 
 logger = logging.getLogger(__name__)
 

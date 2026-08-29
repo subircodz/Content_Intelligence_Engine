@@ -1,7 +1,7 @@
 """Target-domain strategy facade."""
 
-from power_win_content.client import ClientConfig
-from power_win_content.strategy.strategist import ContentStrategist
+from intelligence_content_engine.client import ClientConfig
+from intelligence_content_engine.strategy.strategist import ContentStrategist
 
 
 class DomainContentStrategist(ContentStrategist):

@@ -1,9 +1,9 @@
 import json
 from unittest.mock import Mock
 
-from power_win_content.research.models import Claim, ClaimStatus, Evidence, ResearchResult, Source, SourceType
-from power_win_content.strategy.models import AIOStrategy, ContentBrief, GEOStrategy, SEOStrategy
-from power_win_content.strategy.strategist import ContentStrategist
+from intelligence_content_engine.research.models import Claim, ClaimStatus, Evidence, ResearchResult, Source, SourceType
+from intelligence_content_engine.strategy.models import AIOStrategy, ContentBrief, GEOStrategy, SEOStrategy
+from intelligence_content_engine.strategy.strategist import ContentStrategist
 
 
 def test_strategy_models_are_domain_independent():

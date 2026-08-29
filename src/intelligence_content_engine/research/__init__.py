@@ -1,4 +1,4 @@
-from power_win_content.research.models import (
+from intelligence_content_engine.research.models import (
     SourceType,
     ClaimStatus,
     InformationNature,
@@ -11,7 +11,7 @@ from power_win_content.research.models import (
     ResearchPlan,
     ResearchResult,
 )
-from power_win_content.research.researcher import Researcher
+from intelligence_content_engine.research.researcher import Researcher
 
 __all__ = [
     "SourceType",
