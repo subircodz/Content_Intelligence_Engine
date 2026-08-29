@@ -8,11 +8,11 @@ load_dotenv()
 
 
 class Settings:
-    """Runtime settings. Client identity is configuration, never engine code."""
+    """Runtime settings for the domain-independent content intelligence engine."""
 
     def __init__(self) -> None:
-        self.omniroute_base_url = os.getenv("OMNIROUTE_BASE_URL", "http://localhost:20128/v1")
-        self.omniroute_model = os.getenv("OMNIROUTE_MODEL", "auto")
+        self.llm_base_url = os.getenv("LLM_BASE_URL", "http://localhost:20128/v1")
+        self.llm_model = os.getenv("LLM_MODEL", "auto")
         self.google_api_key = os.getenv("GOOGLE_API_KEY")
         self.google_cse_id = os.getenv("GOOGLE_CSE_ID")
         self.bing_api_key = os.getenv("BING_API_KEY")
@@ -24,8 +24,7 @@ class Settings:
 
         if not domain:
             raise ValueError(
-                "TARGET_DOMAIN is required. The content intelligence engine is domain-independent; "
-                "configure the target site through environment variables."
+                "TARGET_DOMAIN is required. Configure the target site through environment variables."
             )
 
         self.client = ClientConfig(
