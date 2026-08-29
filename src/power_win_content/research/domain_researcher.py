@@ -14,6 +14,15 @@ class DomainResearcher(Researcher):
         self.client_config = client_config
         super().__init__(llm_client=llm_client, **kwargs)
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        close = getattr(self.fetcher, "close", None)
+        if callable(close):
+            close()
+        return False
+
     def _build_fallback_plan(self, topic: str) -> ResearchPlan:
         return ResearchPlan(
             topic=topic,
@@ -28,7 +37,6 @@ class DomainResearcher(Researcher):
                 ResearchQuestion(
                     question=f"What authoritative external context is relevant to: {topic}?",
                     priority="high",
-                    is_first_party_check=False,
                     required_source_types=[SourceType.REGULATORY, SourceType.AUTHORITATIVE, SourceType.PRIMARY],
                     notes="Fallback external research question.",
                 ),
@@ -41,16 +49,12 @@ class DomainResearcher(Researcher):
     def _build_plan_prompt(self, topic: str) -> str:
         return (
             "You are a research planner for a domain-independent content intelligence engine.\n\n"
-            f"Target brand: {self.client_config.name}\n"
-            f"Target domain: {self.client_config.domain}\n"
-            f"Topic: {topic}\n\n"
-            "Return ONLY valid JSON with questions, required_first_party_checks, required_external_checks, "
-            "and claims_to_verify. Use is_first_party_check=true only for target-site first-party verification. "
-            "Do not assume any particular industry."
+            f"Target brand: {self.client_config.name}\nTarget domain: {self.client_config.domain}\nTopic: {topic}\n\n"
+            "Return ONLY valid JSON with questions, required_first_party_checks, required_external_checks, and claims_to_verify. "
+            "Use is_first_party_check=true only for target-site first-party verification. Do not assume any particular industry."
         )
 
     def _filter_sources_by_question(self, sources: list[Source], question: ResearchQuestion) -> list[Source]:
-        """Prioritize configured first-party sources without assuming a particular hostname."""
         def priority(source: Source) -> int:
             host = urlparse(str(source.url)).hostname or ""
             host = host.lower().removeprefix("www.")
@@ -59,41 +63,30 @@ class DomainResearcher(Researcher):
             if host.endswith(f".{self.client_config.domain}"):
                 return 2
             return 3
-
         return sorted(sources, key=priority)
 
     def _build_extraction_prompt(self, content, source, question, is_first_party):
         source_type = source.source_type.value if hasattr(source.source_type, "value") else source.source_type
         return (
             "Extract verifiable claims from the supplied source content.\n\n"
-            f"Target brand: {self.client_config.name}\n"
-            f"Target domain: {self.client_config.domain}\n"
-            f"Source: {source.name} ({source.url})\n"
-            f"Source Type: {source_type}\n"
-            f"Research Question: {question}\n"
-            f"Is Target First-Party Check: {is_first_party}\n\n"
+            f"Target brand: {self.client_config.name}\nTarget domain: {self.client_config.domain}\n"
+            f"Source: {source.name} ({source.url})\nSource Type: {source_type}\n"
+            f"Research Question: {question}\nIs Target First-Party Check: {is_first_party}\n\n"
             f"Source Content (truncated):\n{content[:8000]}\n\n"
-            "Return ONLY JSON containing a claims array. Every excerpt MUST be an exact quote from the "
-            "supplied source content. Extract only claims directly supported by that content."
+            "Return ONLY JSON containing a claims array. Every excerpt MUST be an exact quote from the supplied source content."
         )
 
     def _build_batch_analysis_prompt(self, evidence_list, question, is_first_party):
         blocks = []
         for i, (source, content, _, _, _) in enumerate(evidence_list, start=1):
             source_type = source.source_type.value if hasattr(source.source_type, "value") else source.source_type
-            blocks.append(
-                f"SOURCE {i}:\nName: {source.name}\nURL: {source.url}\nType: {source_type}\n"
-                f"Content:\n{content[:5000]}\n"
-            )
+            blocks.append(f"SOURCE {i}:\nName: {source.name}\nURL: {source.url}\nType: {source_type}\nContent:\n{content[:5000]}\n")
         return (
             "Analyze multiple sources to extract verifiable claims.\n\n"
-            f"Target brand: {self.client_config.name}\n"
-            f"Target domain: {self.client_config.domain}\n"
-            f"Research Question: {question}\n"
-            f"Target First-Party Check: {is_first_party}\n\n"
+            f"Target brand: {self.client_config.name}\nTarget domain: {self.client_config.domain}\n"
+            f"Research Question: {question}\nTarget First-Party Check: {is_first_party}\n\n"
             + "\n".join(blocks)
-            + "\nReturn ONLY JSON with a claims array. Each claim must contain text, status, nature, "
-            "source_index (1-based), exact excerpt from that source, confidence, and notes."
+            + "\nReturn ONLY JSON with a claims array. Each claim must contain text, status, nature, source_index (1-based), exact excerpt, confidence, and notes."
         )
 
     def _generate_summary(self, result):
