@@ -4,9 +4,9 @@ import json
 import logging
 from typing import Optional
 
-from power_win_content.competitors.models import CompetitorAnalysis, ContentGap
+from power_win_content.competitors.models import CompetitorAnalysis, ContentGap, OpportunityType, TopicCoverageStatus
 from power_win_content.llm.client import LLMClient
-from power_win_content.research.models import Claim, ClaimStatus, InformationNature, PhaseStatus, ResearchResult
+from power_win_content.research.models import Claim, ClaimStatus, PhaseStatus, ResearchResult
 from power_win_content.strategy.models import AIOStrategy, ContentBrief, GEOStrategy, SEOStrategy
 
 logger = logging.getLogger(__name__)
@@ -61,6 +61,7 @@ class ContentStrategist:
             unsupported_claims_count=len(unsupported_claims),
             conflicts_count=len(research.conflicting_information),
             competitor_gaps=competitor_analysis.gaps if competitor_analysis else ContentGap(),
+            market_coverage=competitor_analysis.coverage if competitor_analysis else None,
         )
 
         parsed_count = sum((seo_ok, aio_ok, geo_ok))
@@ -113,21 +114,34 @@ class ContentStrategist:
         if not analysis:
             return ""
         gaps = analysis.gaps
+        coverage = analysis.coverage
         parts = [
-            "Competitor content opportunity analysis (editorial planning only, NOT factual evidence):",
-            f"Competitors analyzed: {analysis.domains_analyzed}",
+            "Competitor market analysis (editorial planning only, NOT factual evidence):",
+            f"Coverage status: {coverage.status}",
+            f"Coverage confidence: {coverage.confidence}",
+            f"Opportunity type: {coverage.opportunity_type or 'NONE'}",
+            f"Coverage rationale: {coverage.rationale or 'None'}",
+            f"Relevant competitor domains: {coverage.relevant_domains_found}",
+            f"Relevant pages: {coverage.relevant_pages_found}",
         ]
-        for label, values in (
-            ("Missing topics", gaps.missing_topics),
-            ("Missing questions", gaps.missing_questions),
-            ("Missing entities", gaps.missing_entities),
-            ("Missing comparisons", gaps.missing_comparisons),
-            ("Missing statistics/data", gaps.missing_statistics),
-            ("Missing user concerns", gaps.missing_user_concerns),
-            ("Recommended angles", gaps.missing_angles),
-        ):
-            if values:
-                parts.append(f"{label}: {', '.join(values[:10])}")
+
+        if coverage.status in {TopicCoverageStatus.FOUND, TopicCoverageStatus.PARTIALLY_FOUND}:
+            parts.append("Strategy mode: CASE 1 — improve upon existing market coverage and target genuine competitive gaps.")
+            for label, values in (
+                ("Missing topics", gaps.missing_topics),
+                ("Missing questions", gaps.missing_questions),
+                ("Missing entities", gaps.missing_entities),
+                ("Missing comparisons", gaps.missing_comparisons),
+                ("Missing statistics/data", gaps.missing_statistics),
+                ("Missing user concerns", gaps.missing_user_concerns),
+                ("Recommended angles", gaps.missing_angles),
+            ):
+                if values:
+                    parts.append(f"{label}: {', '.join(values[:10])}")
+        elif coverage.status == TopicCoverageStatus.NOT_FOUND and coverage.opportunity_type == OpportunityType.MARKET_WHITESPACE:
+            parts.append("Strategy mode: CASE 2 — market whitespace. Do not invent competitor gaps; independently establish authoritative topic coverage.")
+        else:
+            parts.append("Strategy mode: RESEARCH INSUFFICIENT. Do not infer market whitespace or competitive gaps from incomplete evidence.")
         return "\n".join(parts)
 
     def _generate_seo_strategy(self, topic: str, context: str) -> tuple[SEOStrategy, bool]:
@@ -137,6 +151,7 @@ class ContentStrategist:
         return (
             "You are an SEO content strategist. Create an SEO strategy for the topic below.\n\n"
             f"Topic: {topic}\n\nResearch Context:\n{context}\n\n"
+            "Respect the market-analysis strategy mode. If CASE 2 market whitespace is stated, do not fabricate competitor gaps. "
             "Return ONLY valid JSON containing primary_topic, search_intent, primary_keyword, secondary_keywords, "
             "recommended_title, recommended_headings, questions_to_answer, internal_linking_opportunities, "
             "and semantic_coverage_requirements. Use only the supplied research context for factual details."
