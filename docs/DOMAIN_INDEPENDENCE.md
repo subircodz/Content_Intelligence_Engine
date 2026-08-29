@@ -1,6 +1,6 @@
 # Domain Independence
 
-The engine is now configured around a target site rather than hard-coded to a single brand.
+The engine is configured around a target site rather than a hard-coded brand or industry.
 
 ## Configuration
 
@@ -22,10 +22,21 @@ python -m power_win_content.main --target-brand Example --target-domain example.
 
 ## Boundary
 
-`ClientConfig` is the only configuration object the pipeline needs to know the target brand/domain. Core research, competitor discovery, strategy, and writing are expected to consume this configuration rather than embed a client domain.
+`ClientConfig` is the configuration boundary for target identity. Core research, competitor discovery, strategy, and writing must consume target configuration rather than embed a client domain or brand.
 
-First-party knowledge is optional. A client may provide zero, one, or multiple sitemaps and additional first-party domains.
+First-party knowledge is optional. A target may provide zero, one, or multiple sitemaps and additional first-party domains.
 
-## Current transition
+## LLM Boundary
 
-The existing research model retains the legacy `power_win_*` field names for compatibility with the current codebase. `DomainResearcher` is the domain-independent facade used by the pipeline. Those legacy model names are technical debt and should be removed in a later dedicated model migration.
+The LLM layer is provider-independent. Configure any OpenAI-compatible `/chat/completions` endpoint through:
+
+```env
+LLM_BASE_URL=https://llm.example.com/v1
+LLM_MODEL=your-model
+```
+
+No named LLM provider, gateway, router, or model service belongs in the core engine.
+
+## Engineering Rule
+
+A new target should require configuration or an explicit adapter, not modifications to the core research, competitor, strategy, or writing modules.
