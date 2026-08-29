@@ -63,7 +63,7 @@ SEO + AIO + GEO Strategy
 Article Draft
 ```
 
-The system must not manufacture competitor gaps when meaningful competitor coverage does not exist.
+The system must not manufacture competitor gaps when meaningful competitor coverage does not exist. **Case 2 is a valid successful content opportunity and must continue through independent research, SEO/AIO/GEO strategy, and article generation.**
 
 ### Coverage status must be explicit
 
@@ -216,6 +216,15 @@ Competitor Intelligence
     |-- Coverage / Gap Analysis
     |
     v
+Research Quality Gate
+    |-- Research completeness
+    |-- Safe/unsupported claim balance
+    |-- Conflict/gap warnings
+    |-- Competitor evidence sufficiency
+    |-- Blocks failed research
+    |-- Allows valid Case 2 whitespace to continue
+    |
+    v
 Content Strategy
     |-- Search Intent
     |-- SEO
@@ -258,6 +267,7 @@ content-intelligence-engine/
         │   └── client.py        # OpenAI-compatible LLM client
         ├── research/
         │   ├── models.py
+        │   ├── quality.py       # Research quality gate
         │   ├── researcher.py
         │   ├── domain_researcher.py
         │   └── tools/
@@ -492,6 +502,68 @@ A search failure, fetch failure, CAPTCHA, API outage, or insufficient sample mus
 
 ---
 
+## Research Quality Gate
+
+The quality gate sits between research/competitor analysis and strategy generation.
+
+```text
+Research + Competitor Intelligence
+              |
+              v
+       Research Quality Gate
+              |
+       +------+------+
+       |             |
+       v             v
+      FAIL      PASS / DEGRADED
+       |             |
+       v             v
+      STOP        Strategy
+                     |
+              +------+------+
+              |             |
+          Case 1         Case 2
+          Gap             Whitespace
+              |             |
+              +------+------+
+                     |
+                SEO/AIO/GEO
+                     |
+                  Article
+```
+
+The gate evaluates:
+
+- number of safe claims available to the writer
+- unsupported-claim proportion
+- conflicting claims
+- unresolved research gaps
+- competitor coverage confidence
+- whether competitor research actually succeeded
+
+### Blocking conditions
+
+The gate blocks strategy generation when research is unusable, for example:
+
+- no usable research result
+- insufficient safe claims
+- excessive unsupported claims
+- competitor search actually failed
+
+### Non-blocking conditions
+
+The gate can mark research `DEGRADED` without stopping article generation when limitations are known and manageable.
+
+Most importantly:
+
+> **`TOPIC_NOT_FOUND` is not a failure. It is a valid Case 2 outcome.**
+
+A valid `TOPIC_NOT_FOUND` result continues through independent research, SEO/AIO/GEO strategy, and article generation.
+
+`INSUFFICIENT_DATA` is different: it means the engine must not claim confirmed market whitespace. The article may proceed only when the remaining research is otherwise usable and the strategy layer is explicitly prevented from treating the topic as confirmed whitespace.
+
+---
+
 ## SEO / AIO / GEO Strategy
 
 The strategy layer translates research and market intelligence into an article plan.
@@ -548,9 +620,18 @@ Current capabilities include:
 
 ### Evidence integrity requirement
 
-LLM-generated excerpts are proposed evidence, not automatically trustworthy evidence. A production-quality implementation must deterministically verify that an extracted excerpt actually occurs in the fetched source content before treating it as verified provenance.
+LLM-generated supporting text is **not required to be a verbatim quotation** from the source. It may be a faithful paraphrase or summary.
 
-This is an engineering invariant and must not depend solely on an LLM prompt.
+Evidence validation must therefore evaluate **semantic support**, not exact string equality. The source must actually contain information that supports the claim represented by the supporting text.
+
+The intended evidence states are:
+
+- **FULL SUPPORT** — the source clearly supports the claim
+- **PARTIAL SUPPORT** — the source supports only part of the claim
+- **WEAK / AMBIGUOUS** — support is uncertain and needs review
+- **UNSUPPORTED** — the source does not substantiate the claim
+
+The original retrieved source content and retrieval metadata remain the audit trail. LLM output alone is never treated as proof.
 
 ---
 
@@ -650,7 +731,8 @@ Tests should cover:
 - topic coverage classification
 - Case 1 vs Case 2 routing
 - search failure vs topic-not-found distinction
-- evidence excerpt verification
+- research quality gate pass/degraded/fail paths
+- semantic evidence-support validation
 - source provenance
 - strategy generation
 - writing failure handling
@@ -664,11 +746,12 @@ Live smoke tests under `scripts/` may hit external web services and are separate
 
 1. **Domain independence:** core code must not contain target-brand, target-domain, or industry assumptions that belong in configuration/adapters.
 2. **LLM provider independence:** the core LLM layer targets an OpenAI-compatible interface and must not depend on a named provider or gateway.
-3. **Evidence integrity:** LLM output is not proof; provenance must be validated deterministically.
+3. **Evidence integrity:** LLM output is not proof; provenance must be validated against source content semantically, not by exact quotation matching.
 4. **Research quality gates:** incomplete research must be represented explicitly and must not masquerade as market whitespace.
-5. **Competitor intelligence is planning input:** competitor gaps are not factual evidence.
-6. **Human editorial control:** generated articles are drafts and require review before publication.
-7. **Bounded execution:** search, fetching, LLM calls, sources, and cost must remain bounded.
-8. **Graceful degradation:** one provider or source failing must not unnecessarily terminate the whole pipeline.
-9. **No access-control bypass:** CAPTCHA, authentication, anti-bot controls, and access restrictions are not bypassed.
-10. **Tests protect invariants:** changes to research, provider, strategy, or writer behaviour require corresponding tests.
+5. **Case 2 is valid:** confirmed market whitespace must continue to SEO/AIO/GEO strategy and article generation.
+6. **Competitor intelligence is planning input:** competitor gaps are not factual evidence.
+7. **Human editorial control:** generated articles are drafts and require review before publication.
+8. **Bounded execution:** search, fetching, LLM calls, sources, and cost must remain bounded.
+9. **Graceful degradation:** one provider or source failing must not unnecessarily terminate the whole pipeline.
+10. **No access-control bypass:** CAPTCHA, authentication, anti-bot controls, and access restrictions are not bypassed.
+11. **Tests protect invariants:** changes to research, provider, strategy, or writer behaviour require corresponding tests.
