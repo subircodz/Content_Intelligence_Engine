@@ -15,11 +15,11 @@ __pycache__/
 # Generated artifacts
 output/
 
-# Local-only Claude settings (shared .claude/CLAUDE.md stays tracked)
-.claude/settings.local.json
-
 # OS noise
 .DS_Store
 
-# Downloaed file
+# Downloaded file
 downloaded_files/
+downloaded_files/*
+download*
+
