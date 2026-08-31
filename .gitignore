@@ -20,3 +20,6 @@ output/
 
 # OS noise
 .DS_Store
+
+# Downloaed file
+downloaded_files/
