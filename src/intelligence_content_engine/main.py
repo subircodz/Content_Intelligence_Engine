@@ -28,9 +28,14 @@ from intelligence_content_engine.ui import (
 console = Console()
 
 
-async def run_pipeline(\n    topic: str,\n    client_config: ClientConfig,\n    language: ContentLanguage = ContentLanguage.ENGLISH,\n) -> Optional[str]:
+async def run_pipeline(
+    topic: str,
+    client_config: ClientConfig,
+    language: ContentLanguage = ContentLanguage.ENGLISH,
+) -> Optional[str]:
     display_info(f"Target: [bold]{client_config.name}[/bold] ({client_config.domain})")
-    display_info(f"Target Topic: [bold]{topic}[/bold]")\n    display_info(f"Output Language: [bold]{language.display_name}[/bold]")
+    display_info(f"Target Topic: [bold]{topic}[/bold]")
+    display_info(f"Output Language: [bold]{language.display_name}[/bold]")
 
     settings = Settings(require_target=False)
     llm_client = LLMClient(base_url=settings.llm_base_url, model=settings.llm_model, api_key=settings.llm_api_key)
@@ -179,7 +184,12 @@ def main() -> None:
     parser.add_argument("--target-domain", help="Target website domain; overrides TARGET_DOMAIN")
     parser.add_argument("--target-brand", help="Target brand name; overrides TARGET_BRAND")
     parser.add_argument("--first-party-sitemap", action="append", dest="sitemaps", help="First-party sitemap URL; repeatable")
-    parser.add_argument("--language", choices=[language.value for language in ContentLanguage], help="Output document language. Overrides CONTENT_LANGUAGE.")\n    parser.add_argument("--debug", action="store_true", help="Enable detailed debug output")
+    parser.add_argument(
+        "--language",
+        choices=[language.value for language in ContentLanguage],
+        help="Output document language. Overrides CONTENT_LANGUAGE.",
+    )
+    parser.add_argument("--debug", action="store_true", help="Enable detailed debug output")
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.WARNING)
