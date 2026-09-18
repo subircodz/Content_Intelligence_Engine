@@ -1,6 +1,8 @@
 name: Live E2E Smoke Test
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       topic:
@@ -16,8 +18,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      TARGET_DOMAIN: ${{ secrets.TARGET_DOMAIN }}
-      TARGET_BRAND: ${{ secrets.TARGET_BRAND }}
+      TARGET_DOMAIN: power.win
+      TARGET_BRAND: Power.win
+      # TARGET_BRAND is fixed for this validation run.
       TARGET_FIRST_PARTY_SITEMAPS: ${{ secrets.TARGET_FIRST_PARTY_SITEMAPS }}
       LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
       LLM_MODEL: ${{ secrets.LLM_MODEL }}
