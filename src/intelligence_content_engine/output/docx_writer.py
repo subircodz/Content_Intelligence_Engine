@@ -11,7 +11,7 @@ def safe_filename(title: str) -> str:
     return value or "untitled-article"
 
 def _add_inline_markdown(paragraph, text: str) -> None:
-    pattern = re.compile(r"(\\*\\*[^*]+\\*\\*|\\*[^*]+\\*)")
+    pattern = re.compile(r"(\*\*[^*]+\*\*|\*[^*]+\*)")
     position = 0
     for match in pattern.finditer(text):
         if match.start() > position:
@@ -29,19 +29,19 @@ def markdown_to_docx(article: str, title: str) -> Document:
     document = Document()
     document.core_properties.title = title
     document.add_paragraph(title, style="Title")
-    lines = article.replace("\\r\\n", "\\n").replace("\\r", "\\n").split("\\n")
+    lines = article.replace("\r\n", "\n").replace("\r", "\n").split("\n")
     for raw_line in lines:
         line = raw_line.strip()
         if not line: continue
-        heading = re.match(r"^(#{1,6})\\s+(.+)$", line)
+        heading = re.match(r"^(#{1,6})\s+(.+)$", line)
         if heading:
             p = document.add_paragraph(style=f"Heading {min(len(heading.group(1)), 6)}")
             _add_inline_markdown(p, heading.group(2).strip()); continue
-        bullet = re.match(r"^[-*+]\\s+(.+)$", line)
+        bullet = re.match(r"^[-*+]\s+(.+)$", line)
         if bullet:
             p = document.add_paragraph(style="List Bullet")
             _add_inline_markdown(p, bullet.group(1)); continue
-        numbered = re.match(r"^\\d+[.)]\\s+(.+)$", line)
+        numbered = re.match(r"^\d+[.)]\s+(.+)$", line)
         if numbered:
             p = document.add_paragraph(style="List Number")
             _add_inline_markdown(p, numbered.group(1)); continue
