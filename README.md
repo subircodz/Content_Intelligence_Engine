@@ -646,4 +646,4 @@ Or configure CONTENT_LANGUAGE=telugu, CONTENT_LANGUAGE=tamil, or CONTENT_LANGUAG
 
 Telugu and Tamil DOCX files use a Unicode-capable font hint and receive a language suffix such as -telugu.docx or -tamil.docx.
 
-See docs/LANGUAGES.md for the multilingual output contract and accuracy boundary.
+See docs/LANGUAGES.md for the multilingual output contract and accuracy boundary.\n\nLocalized project documentation: [తెలుగు](docs/README.te.md) and [தமிழ்](docs/README.ta.md).
