@@ -131,7 +131,11 @@ async def run_pipeline(
     article = None
     try:
         with console.status("[bold cyan]Executing Writing Phase..."):
-            article = DomainContentWriterAgent(llm_client=llm_client, client_config=client_config, language=language).generate(brief)
+            article = DomainContentWriterAgent(
+                llm_client=llm_client,
+                client_config=client_config,
+                language=language,
+            ).generate(brief)
         if article and article.strip():
             writing_status = PhaseStatus.SUCCESS
             display_phase_result("Writing Phase", writing_status, f"~{len(article.split())} words generated.")
@@ -183,7 +187,12 @@ def main() -> None:
     parser.add_argument("topic", nargs="*", help="Article title or topic")
     parser.add_argument("--target-domain", help="Target website domain; overrides TARGET_DOMAIN")
     parser.add_argument("--target-brand", help="Target brand name; overrides TARGET_BRAND")
-    parser.add_argument("--first-party-sitemap", action="append", dest="sitemaps", help="First-party sitemap URL; repeatable")
+    parser.add_argument(
+        "--first-party-sitemap",
+        action="append",
+        dest="sitemaps",
+        help="First-party sitemap URL; repeatable",
+    )
     parser.add_argument(
         "--language",
         choices=[language.value for language in ContentLanguage],
@@ -214,7 +223,8 @@ def main() -> None:
         parser.error("topic must be 500 characters or fewer")
 
     try:
-        language = ContentLanguage.parse(args.language) if args.language else settings.content_language\n        article = asyncio.run(run_pipeline(topic, client_config, language=language))
+        language = ContentLanguage.parse(args.language) if args.language else settings.content_language
+        article = asyncio.run(run_pipeline(topic, client_config, language=language))
         if article is None:
             sys.exit(1)
     except KeyboardInterrupt:
