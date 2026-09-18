@@ -10,7 +10,7 @@ load_dotenv()
 class Settings:
     """Runtime settings for the domain-independent content intelligence engine."""
 
-    def __init__(self, require_target: bool = True) -> None:
+    def __init__(self, require_target: bool = False) -> None:
         self.llm_base_url = os.getenv("LLM_BASE_URL", "http://localhost:20128/v1")
         self.llm_model = os.getenv("LLM_MODEL", "auto")
         self.llm_api_key = os.getenv("LLM_API_KEY")
