@@ -10,6 +10,7 @@ from intelligence_content_engine.client import ClientConfig
 from intelligence_content_engine.competitors.analyzer import CompetitorAnalyzer
 from intelligence_content_engine.competitors.models import CompetitorAnalysis
 from intelligence_content_engine.config import Settings
+from intelligence_content_engine.language import ContentLanguage
 from intelligence_content_engine.llm.client import LLMClient
 from intelligence_content_engine.output.docx_writer import save_article_docx
 from intelligence_content_engine.research.domain_researcher import DomainResearcher
@@ -27,9 +28,9 @@ from intelligence_content_engine.ui import (
 console = Console()
 
 
-async def run_pipeline(topic: str, client_config: ClientConfig) -> Optional[str]:
+async def run_pipeline(\n    topic: str,\n    client_config: ClientConfig,\n    language: ContentLanguage = ContentLanguage.ENGLISH,\n) -> Optional[str]:
     display_info(f"Target: [bold]{client_config.name}[/bold] ({client_config.domain})")
-    display_info(f"Target Topic: [bold]{topic}[/bold]")
+    display_info(f"Target Topic: [bold]{topic}[/bold]")\n    display_info(f"Output Language: [bold]{language.display_name}[/bold]")
 
     settings = Settings(require_target=False)
     llm_client = LLMClient(base_url=settings.llm_base_url, model=settings.llm_model, api_key=settings.llm_api_key)
@@ -125,7 +126,7 @@ async def run_pipeline(topic: str, client_config: ClientConfig) -> Optional[str]
     article = None
     try:
         with console.status("[bold cyan]Executing Writing Phase..."):
-            article = DomainContentWriterAgent(llm_client=llm_client, client_config=client_config).generate(brief)
+            article = DomainContentWriterAgent(llm_client=llm_client, client_config=client_config, language=language).generate(brief)
         if article and article.strip():
             writing_status = PhaseStatus.SUCCESS
             display_phase_result("Writing Phase", writing_status, f"~{len(article.split())} words generated.")
@@ -140,7 +141,7 @@ async def run_pipeline(topic: str, client_config: ClientConfig) -> Optional[str]
 
     docx_status = PhaseStatus.FAILED
     try:
-        docx_path = save_article_docx(article, topic, competitor_analysis=competitor_analysis)
+        docx_path = save_article_docx(article, topic, competitor_analysis=competitor_analysis, language=language)
         if docx_path:
             docx_status = PhaseStatus.SUCCESS
             display_phase_result("DOCX Generation", docx_status, str(docx_path))
@@ -178,7 +179,7 @@ def main() -> None:
     parser.add_argument("--target-domain", help="Target website domain; overrides TARGET_DOMAIN")
     parser.add_argument("--target-brand", help="Target brand name; overrides TARGET_BRAND")
     parser.add_argument("--first-party-sitemap", action="append", dest="sitemaps", help="First-party sitemap URL; repeatable")
-    parser.add_argument("--debug", action="store_true", help="Enable detailed debug output")
+    parser.add_argument("--language", choices=[language.value for language in ContentLanguage], help="Output document language. Overrides CONTENT_LANGUAGE.")\n    parser.add_argument("--debug", action="store_true", help="Enable detailed debug output")
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.WARNING)
@@ -203,7 +204,7 @@ def main() -> None:
         parser.error("topic must be 500 characters or fewer")
 
     try:
-        article = asyncio.run(run_pipeline(topic, client_config))
+        language = ContentLanguage.parse(args.language) if args.language else settings.content_language\n        article = asyncio.run(run_pipeline(topic, client_config, language=language))
         if article is None:
             sys.exit(1)
     except KeyboardInterrupt:
