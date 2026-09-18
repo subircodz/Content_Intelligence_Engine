@@ -36,9 +36,6 @@ def _classify_source_type(url: str) -> SourceType:
     """Classify source type based on URL domain."""
     url_lower = url.lower()
 
-    if "power.win" in url_lower:
-        return SourceType.FIRST_PARTY
-
     regulatory_domains = [
         "ukgc.gov.uk", "gamblingcommission.gov.uk",
         "mga.org.mt", "malta gaming authority",
