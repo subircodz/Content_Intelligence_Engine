@@ -9,7 +9,6 @@ from intelligence_content_engine.llm.client import LLMClient
 from intelligence_content_engine.research.models import (
     Claim,
     ClaimStatus,
-    ConflictingClaim,
     Evidence,
     InformationNature,
     PhaseStatus,
