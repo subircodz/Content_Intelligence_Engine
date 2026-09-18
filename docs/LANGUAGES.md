@@ -5,6 +5,8 @@ The Content Intelligence Engine can generate the final article/document draft in
 - English
 - Telugu (తెలుగు)
 - Tamil (தமிழ்)
+- Kannada (ಕನ್ನಡ)
+- Malayalam (മലയാളം)
 
 Research, evidence validation, competitor intelligence, and SEO/AIO/GEO strategy remain the same. Language selection controls the generated article and DOCX presentation; it does not translate or alter the underlying evidence.
 
@@ -31,6 +33,30 @@ Or set:
     CONTENT_LANGUAGE=tamil
 
 The output is written to a language-specific DOCX filename ending in -tamil.docx.
+
+## Kannada
+
+Use:
+
+    content-intelligence-engine --language kannada "ನಿಮ್ಮ ಲೇಖನದ ವಿಷಯ"
+
+Or set:
+
+    CONTENT_LANGUAGE=kannada
+
+The output is written to a language-specific DOCX filename ending in -kannada.docx.
+
+## Malayalam
+
+Use:
+
+    content-intelligence-engine --language malayalam "നിങ്ങളുടെ ലേഖന വിഷയം"
+
+Or set:
+
+    CONTENT_LANGUAGE=malayalam
+
+The output is written to a language-specific DOCX filename ending in -malayalam.docx.
 
 ## English
 
