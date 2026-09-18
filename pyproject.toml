@@ -11,6 +11,7 @@ dependencies = [
     "playwright",
     "rich",
     "beautifulsoup4",
+    "seleniumbase",
 ]
 [dependency-groups]
 dev = [
