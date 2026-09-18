@@ -1,0 +1,38 @@
+name: Live E2E Smoke Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      topic:
+        description: "Topic to run through the real pipeline"
+        required: true
+        default: "Example content research topic"
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TARGET_DOMAIN: ${{ secrets.TARGET_DOMAIN }}
+      TARGET_BRAND: ${{ secrets.TARGET_BRAND }}
+      TARGET_FIRST_PARTY_SITEMAPS: ${{ secrets.TARGET_FIRST_PARTY_SITEMAPS }}
+      LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+      LLM_MODEL: ${{ secrets.LLM_MODEL }}
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -e .
+      - name: Install Chromium
+        run: playwright install --with-deps chromium
+      - name: Run live pipeline smoke test
+        run: python scripts/test_e2e.py "${{ inputs.topic }}"
