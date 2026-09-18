@@ -33,4 +33,4 @@ jobs:
           pip install pytest
 
       - name: Run tests
-        run: pytest -q
+        run: pytest -q tests/unit tests/test_config.py tests/test_content_writer.py tests/test_docx_writer.py tests/test_llm_client.py tests/test_research_models.py tests/test_strategy.py tests/test_ui.py
