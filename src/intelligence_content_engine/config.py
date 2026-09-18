@@ -3,6 +3,7 @@ import os
 from dotenv import load_dotenv
 
 from intelligence_content_engine.client import ClientConfig
+from intelligence_content_engine.language import ContentLanguage
 
 load_dotenv()
 
@@ -19,6 +20,7 @@ class Settings:
         self.google_api_key = os.getenv("GOOGLE_API_KEY")
         self.google_cse_id = os.getenv("GOOGLE_CSE_ID")
         self.bing_api_key = os.getenv("BING_API_KEY")
+        self.content_language = ContentLanguage.parse(os.getenv("CONTENT_LANGUAGE", ContentLanguage.ENGLISH.value))
 
         domain = os.getenv("TARGET_DOMAIN", "").strip()
         name = os.getenv("TARGET_BRAND", domain).strip()
