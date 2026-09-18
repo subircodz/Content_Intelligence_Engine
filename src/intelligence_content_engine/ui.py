@@ -99,7 +99,7 @@ def _format_research_status(raw: str) -> str:
     return {"verified": "Verified", "partially_supported": "Partially Supported", "unsupported": "Unsupported", "conflicting": "Conflicting", "uncertain": "Uncertain"}.get(raw.lower(), raw)
 
 
-def display_summary_table(topic: str, research_status: str, pipeline_status_label: str, first_party_facts_count: int, external_facts_count: int, gaps_count: int, unsupported_count: int, recommended_title: str, primary_keyword: str, article_length: int, competitors_selected: int = 0, competitors_analyzed: int = 0, competitors_failed: int = 0) -> None:
+def display_summary_table(topic: str, research_status: str, pipeline_status_label: str, first_party_facts_count: int = 0, external_facts_count: int = 0, gaps_count: int, unsupported_count: int, recommended_title: str, primary_keyword: str, article_length: int, competitors_selected: int = 0, competitors_analyzed: int = 0, competitors_failed: int = 0, power_win_facts_count: int | None = None) -> None:
     table = Table(title="Pipeline Summary", show_header=True, header_style="bold blue")
     table.add_column("Metric", style="cyan", no_wrap=True)
     table.add_column("Value", style="bold white")
@@ -108,7 +108,7 @@ def display_summary_table(topic: str, research_status: str, pipeline_status_labe
     table.add_row("Pipeline Status", f"{status_style}{pipeline_status_label}[/]")
     friendly = _format_research_status(research_status)
     table.add_row("Research", f"[green]{friendly}[/green]" if research_status.lower() in ("verified", "partially_supported") else f"[yellow]{friendly}[/yellow]")
-    table.add_row("First-Party Facts", str(first_party_facts_count))
+    table.add_row("First-Party Facts", str(first_party_facts_count if power_win_facts_count is None else power_win_facts_count))
     table.add_row("External Facts", str(external_facts_count))
     table.add_row("Research Gaps", str(gaps_count))
     table.add_row("Unsupported Claims", str(unsupported_count))
