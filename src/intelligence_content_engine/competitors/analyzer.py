@@ -89,13 +89,13 @@ class CompetitorAnalyzer:
     def __init__(
         self,
         llm_client: LLMClient,
-        client_config: ClientConfig,
+        client_config: Optional[ClientConfig] = None,
         search_tool: Optional[WebSearchTool] = None,
         fetcher: Optional[WebFetcher] = None,
         max_competitors: int = 5,
     ) -> None:
         self.llm_client = llm_client
-        self.client_config = client_config
+        self.client_config = client_config or ClientConfig(name="Target", domain="example.com")
         self.search_tool = search_tool or WebSearchTool(timeout=20.0)
         self.fetcher = fetcher or WebFetcher(timeout=15.0)
         self.max_competitors = max_competitors
