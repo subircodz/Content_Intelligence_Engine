@@ -4,11 +4,13 @@ from typing import Optional
 import httpx
 from bs4 import BeautifulSoup
 
+from intelligence_content_engine.research.tools.url_safety import UnsafeURLError, validate_outbound_url
+
 logger = logging.getLogger(__name__)
 
 
 class WebFetcher:
-    """Fetches and extracts readable text content from web pages."""
+    """Fetches and extracts readable text content from web pages safely."""
 
     def __init__(
         self,
@@ -24,56 +26,58 @@ class WebFetcher:
     def _get_client(self) -> httpx.Client:
         if self._client is None:
             self._client = httpx.Client(
-                timeout=self.timeout,
+                timeout=httpx.Timeout(self.timeout, connect=min(self.timeout, 10.0)),
                 headers={
                     "User-Agent": self.user_agent,
                     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
                     "Accept-Language": "en-US,en;q=0.9",
                 },
-                follow_redirects=True,
+                follow_redirects=False,
             )
         return self._client
 
     def fetch(self, url: str) -> Optional[str]:
-        """
-        Fetch a URL and return extracted text content.
-        Returns content even on HTTP errors (for Cloudflare detection).
-        Returns None only on network/timeout errors.
-        """
+        """Fetch a URL and return extracted text content."""
         content = self.fetch_raw(url)
         if content is None:
             return None
         return self._extract_text(content)
 
     def fetch_raw(self, url: str) -> Optional[str]:
-        """
-        Fetch a URL and return raw content (no extraction).
-        Used for sitemaps and other XML content.
-        """
+        """Fetch raw text content while enforcing outbound URL safety."""
         try:
+            current_url = validate_outbound_url(url)
             client = self._get_client()
-            response = client.get(url)
 
-            # Check content type
-            content_type = response.headers.get("content-type", "")
-            # Accept HTML, plain text, XML (sitemaps), and error pages
-            if not any(ct in content_type for ct in ["text/html", "text/plain", "application/xml", "application/xhtml+xml"]):
-                logger.warning("Non-text content type for %s: %s", url, content_type)
-                # Still return content for error pages (e.g., Cloudflare challenge)
-                if response.status_code >= 400:
-                    content = response.text
-                    if len(content) > self.max_content_length:
-                        content = content[: self.max_content_length]
-                    return content
-                return None
+            for _ in range(5):
+                response = client.get(current_url)
 
-            # Limit content length
-            content = response.text
-            if len(content) > self.max_content_length:
-                content = content[: self.max_content_length]
+                if response.is_redirect:
+                    location = response.headers.get("location")
+                    if not location:
+                        logger.warning("Redirect without Location header for %s", current_url)
+                        return None
+                    from urllib.parse import urljoin
+                    current_url = validate_outbound_url(urljoin(current_url, location))
+                    continue
 
-            return content
+                content_type = response.headers.get("content-type", "")
+                if not any(ct in content_type for ct in ["text/html", "text/plain", "application/xml", "application/xhtml+xml"]):
+                    logger.warning("Non-text content type for %s: %s", current_url, content_type)
+                    if response.status_code >= 400:
+                        content = response.text[: self.max_content_length]
+                        return content
+                    return None
 
+                content = response.text[: self.max_content_length]
+                return content
+
+            logger.warning("Too many redirects fetching %s", url)
+            return None
+
+        except UnsafeURLError as exc:
+            logger.warning("Blocked unsafe outbound URL %s: %s", url, exc)
+            return None
         except httpx.TimeoutException:
             logger.warning("Timeout fetching %s", url)
             return None
@@ -88,21 +92,14 @@ class WebFetcher:
         """Extract readable text from HTML."""
         try:
             soup = BeautifulSoup(html, "html.parser")
-
-            # Remove script, style, and other non-content elements
             for element in soup(["script", "style", "noscript", "iframe", "svg", "nav", "footer", "header"]):
                 element.decompose()
-
-            # Get text with some structure preserved
             text = soup.get_text(separator="\n", strip=True)
-
-            # Clean up excessive whitespace
             lines = [line.strip() for line in text.split("\n") if line.strip()]
             return "\n".join(lines)
-
         except Exception as e:
             logger.warning("Error extracting text: %s", e)
-            return html[:10000]  # Fallback: return raw HTML snippet
+            return html[:10000]
 
     def close(self) -> None:
         """Close the underlying HTTP client."""
