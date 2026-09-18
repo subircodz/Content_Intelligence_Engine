@@ -8,7 +8,6 @@ Playwright-based; a legacy API code path remains for any pre-retirement key
 that still works, but no key is required or expected.
 """
 
-import asyncio
 import logging
 import os
 import re
