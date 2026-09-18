@@ -77,11 +77,12 @@ class BrowserFetcher:
             if content:
                 # Validate the final browser URL as well. This does not eliminate
                 # redirect-time exposure, but prevents accepting unsafe destinations.
-                try:
-                    validate_outbound_url(page.url)
-                except UnsafeURLError:
-                    logger.warning("Browser redirected to an unsafe URL: %s", page.url)
-                    return None
+                if isinstance(page.url, str):
+                    try:
+                        validate_outbound_url(page.url)
+                    except UnsafeURLError:
+                        logger.warning("Browser redirected to an unsafe URL: %s", page.url)
+                        return None
                 return content
             return None
         except PlaywrightError as e:
