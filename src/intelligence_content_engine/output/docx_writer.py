@@ -49,6 +49,8 @@ def _set_document_font(document: Document, language: ContentLanguage) -> None:
         ContentLanguage.ENGLISH: "Aptos",
         ContentLanguage.TELUGU: "Nirmala UI",
         ContentLanguage.TAMIL: "Nirmala UI",
+        ContentLanguage.KANNADA: "Nirmala UI",
+        ContentLanguage.MALAYALAM: "Nirmala UI",
     }[language]
 
     for style_name in (
