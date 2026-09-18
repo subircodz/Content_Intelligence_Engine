@@ -631,3 +631,19 @@ It does not treat generated text as automatically publishable content, and it do
 ## License
 
 Licensed under the MIT License.
+
+## Multilingual Output
+
+Release 0.2.0 adds Telugu and Tamil output while keeping English as the default.
+
+Choose the output language with the CLI:
+
+    content-intelligence-engine --language telugu "మీ ఆర్టికల్ అంశం"
+    content-intelligence-engine --language tamil "உங்கள் கட்டுரை தலைப்பு"
+    content-intelligence-engine --language english "Your article topic"
+
+Or configure CONTENT_LANGUAGE=telugu, CONTENT_LANGUAGE=tamil, or CONTENT_LANGUAGE=english in the environment. The research, evidence validation, competitor intelligence, and SEO/AIO/GEO strategy remain language-independent; only the final generated document is written in the selected language.
+
+Telugu and Tamil DOCX files use a Unicode-capable font hint and receive a language suffix such as -telugu.docx or -tamil.docx.
+
+See docs/LANGUAGES.md for the multilingual output contract and accuracy boundary.
