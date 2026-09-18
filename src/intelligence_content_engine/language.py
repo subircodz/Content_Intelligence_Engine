@@ -9,6 +9,8 @@ class ContentLanguage(str, Enum):
     ENGLISH = "english"
     TELUGU = "telugu"
     TAMIL = "tamil"
+    KANNADA = "kannada"
+    MALAYALAM = "malayalam"
 
     @property
     def display_name(self) -> str:
@@ -16,6 +18,8 @@ class ContentLanguage(str, Enum):
             ContentLanguage.ENGLISH: "English",
             ContentLanguage.TELUGU: "Telugu",
             ContentLanguage.TAMIL: "Tamil",
+            ContentLanguage.KANNADA: "Kannada",
+            ContentLanguage.MALAYALAM: "Malayalam",
         }[self]
 
     @classmethod
