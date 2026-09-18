@@ -35,11 +35,13 @@ class ContentWriterAgent:
                 if result and result.strip():
                     return result
                 if attempt < _MAX_RETRIES:
+                    logger.debug("Retrying empty LLM response (attempt %d/%d)", attempt + 1, _MAX_RETRIES + 1)
                     time.sleep(_RETRY_DELAYS[attempt])
                 else:
                     return ""
             except Exception as exc:
                 if _is_transient_error(exc) and attempt < _MAX_RETRIES:
+                    logger.debug("Retrying transient LLM failure (attempt %d/%d): %s", attempt + 1, _MAX_RETRIES + 1, exc)
                     time.sleep(_RETRY_DELAYS[attempt])
                     continue
                 raise
