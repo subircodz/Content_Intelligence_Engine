@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from pathlib import Path
 from typing import Optional
 
@@ -12,8 +13,14 @@ from intelligence_content_engine.language import ContentLanguage
 
 
 def safe_filename(title: str) -> str:
-    value = re.sub(r"[^\w\s-]+", "", str(title).strip().lower(), flags=re.UNICODE)
-    value = re.sub(r"[\s_-]+", "-", value)
+    """Create a filesystem-safe filename without destroying Unicode combining marks."""
+    normalized = unicodedata.normalize("NFC", str(title).strip().lower())
+    allowed = []
+    for char in normalized:
+        category = unicodedata.category(char)
+        if category[0] in {"L", "M", "N"} or char in {" ", "_", "-"}:
+            allowed.append(char)
+    value = re.sub(r"[\s_-]+", "-", "".join(allowed))
     value = re.sub(r"^-+|-+$", "", value)
     return value or "untitled-article"
 
