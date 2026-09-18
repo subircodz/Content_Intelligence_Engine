@@ -188,10 +188,10 @@ class DuckDuckGoProvider:
         sources = []
         try:
             soup = BeautifulSoup(html, "html.parser")
-            result_elements = soup.select(".result__body, .result__snippet, .web-result, .result")
+            result_elements = soup.select(".result, .result__body, .web-result, article")
 
             for elem in result_elements[:max_results]:
-                link_elem = elem.select_one("a.result__snippet, a.result__url, a[href^='http'], a.result__snippet")
+                link_elem = elem.select_one("a.result__a, a.result__url, a[href^='http']")
                 if not link_elem:
                     continue
 
