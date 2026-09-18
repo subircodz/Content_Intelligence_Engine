@@ -158,7 +158,7 @@ class CloudflareBypassFetcher:
         self._session_cache.clear()
 
     def __enter__(self) -> "CloudflareBypassFetcher":
-        self.close()
+        return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         self.close()
