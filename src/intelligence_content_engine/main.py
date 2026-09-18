@@ -199,9 +199,13 @@ def main() -> None:
 
     client_config = ClientConfig(name=brand, domain=domain, first_party_sitemaps=sitemaps)
     topic = " ".join(args.topic) if args.topic else prompt_user_topic()
+    if len(topic) > 500:
+        parser.error("topic must be 500 characters or fewer")
 
     try:
-        asyncio.run(run_pipeline(topic, client_config))
+        article = asyncio.run(run_pipeline(topic, client_config))
+        if article is None:
+            sys.exit(1)
     except KeyboardInterrupt:
         console.print("\n[yellow]Pipeline execution cancelled by user.[/yellow]")
         sys.exit(0)
