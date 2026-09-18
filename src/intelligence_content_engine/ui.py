@@ -99,7 +99,7 @@ def _format_research_status(raw: str) -> str:
     return {"verified": "Verified", "partially_supported": "Partially Supported", "unsupported": "Unsupported", "conflicting": "Conflicting", "uncertain": "Uncertain"}.get(raw.lower(), raw)
 
 
-def display_summary_table(topic: str, research_status: str, pipeline_status_label: str, first_party_facts_count: int = 0, external_facts_count: int = 0, gaps_count: int, unsupported_count: int, recommended_title: str, primary_keyword: str, article_length: int, competitors_selected: int = 0, competitors_analyzed: int = 0, competitors_failed: int = 0, power_win_facts_count: int | None = None) -> None:
+def display_summary_table(topic: str, research_status: str, pipeline_status_label: str, first_party_facts_count: int = 0, external_facts_count: int = 0, gaps_count: int = 0, unsupported_count: int = 0, recommended_title: str = "", primary_keyword: str = "", article_length: int = 0, competitors_selected: int = 0, competitors_analyzed: int = 0, competitors_failed: int = 0, power_win_facts_count: int | None = None) -> None:
     table = Table(title="Pipeline Summary", show_header=True, header_style="bold blue")
     table.add_column("Metric", style="cyan", no_wrap=True)
     table.add_column("Value", style="bold white")
