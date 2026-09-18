@@ -22,9 +22,9 @@ jobs:
       TARGET_BRAND: Power.win
       # TARGET_BRAND is fixed for this validation run.
       TARGET_FIRST_PARTY_SITEMAPS: ${{ secrets.TARGET_FIRST_PARTY_SITEMAPS }}
-      LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
-      LLM_MODEL: ${{ secrets.LLM_MODEL }}
-      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      LLM_BASE_URL: http://127.0.0.1:11434/v1
+      LLM_MODEL: qwen2.5:3b-instruct
+      LLM_API_KEY: ollama
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -37,5 +37,18 @@ jobs:
         run: pip install -e .
       - name: Install Chromium
         run: playwright install --with-deps chromium
+      - name: Start local LLM
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          ollama serve > /tmp/ollama.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:11434/api/tags >/dev/null && break; sleep 1; done
+          ollama pull qwen2.5:3b-instruct
       - name: Run live pipeline smoke test
-        run: python scripts/test_e2e.py "${{ inputs.topic }}"
+        run: python scripts/test_e2e.py "crypto casino"
+      - name: Upload generated report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: power-win-crypto-casino-report
+          path: output/
+          if-no-files-found: warn
