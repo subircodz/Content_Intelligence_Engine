@@ -10,6 +10,7 @@ dependencies = [
     "pydantic",
     "playwright",
     "rich",
+    "beautifulsoup4",
 ]
 [dependency-groups]
 dev = [
