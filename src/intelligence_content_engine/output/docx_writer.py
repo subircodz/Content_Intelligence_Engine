@@ -11,7 +11,7 @@ def safe_filename(title: str) -> str:
     return value or "untitled-article"
 
 def _add_inline_markdown(paragraph, text: str) -> None:
-    pattern = re.compile(r"(\\*\\*[^*]+\\*\\*|(?<!\\*)\\*[^*]+\\*(?!\\*))")
+    pattern = re.compile(r"(\\*\\*[^*]+\\*\\*|\\*[^*]+\\*)")
     position = 0
     for match in pattern.finditer(text):
         if match.start() > position:
