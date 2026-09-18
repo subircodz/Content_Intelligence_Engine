@@ -4,6 +4,7 @@ from typing import Union
 
 import httpx
 
+from intelligence_content_engine.language import ContentLanguage
 from intelligence_content_engine.llm.client import LLMClient
 from intelligence_content_engine.strategy.models import ContentBrief
 
@@ -24,8 +25,9 @@ def _is_transient_error(exc: Exception) -> bool:
 class ContentWriterAgent:
     """Generate article drafts from a domain-independent content brief."""
 
-    def __init__(self, llm_client: LLMClient) -> None:
+    def __init__(self, llm_client: LLMClient, language: ContentLanguage = ContentLanguage.ENGLISH) -> None:
         self.llm_client = llm_client
+        self.language = language
 
     def generate(self, brief: Union[ContentBrief, str]) -> str:
         prompt = self._build_legacy_prompt(brief) if isinstance(brief, str) else self._build_brief_prompt(brief)
@@ -41,7 +43,12 @@ class ContentWriterAgent:
                     return ""
             except Exception as exc:
                 if _is_transient_error(exc) and attempt < _MAX_RETRIES:
-                    logger.debug("Retrying transient LLM failure (attempt %d/%d): %s", attempt + 1, _MAX_RETRIES + 1, exc)
+                    logger.debug(
+                        "Retrying transient LLM failure (attempt %d/%d): %s",
+                        attempt + 1,
+                        _MAX_RETRIES + 1,
+                        exc,
+                    )
                     time.sleep(_RETRY_DELAYS[attempt])
                     continue
                 raise
@@ -51,6 +58,7 @@ class ContentWriterAgent:
         return (
             "Write an original article based on the following title:\n\n"
             f"Title: {title}\n\n"
+            f"Write the article in {self.language.display_name}.\n"
             "Requirements:\n"
             "- Use natural, human-sounding language\n"
             "- Use clear headings and subheadings\n"
@@ -71,6 +79,7 @@ class ContentWriterAgent:
             f"Primary Topic: {brief.seo.primary_topic}",
             f"Search Intent: {brief.seo.search_intent}",
             f"Primary Keyword: {brief.seo.primary_keyword}",
+            f"OUTPUT LANGUAGE: {self.language.display_name}",
         ]
 
         if brief.seo.recommended_title and brief.seo.recommended_title != brief.topic:
@@ -115,6 +124,9 @@ class ContentWriterAgent:
 
         sections.append(
             "\nStrict Writer Guidelines:\n"
+            f"- Write the complete article in {self.language.display_name}. Do not switch to English except for proper names, "
+            "technical terms, product names, URLs, or other terms where translation would reduce accuracy.\n"
+            "- Preserve the meaning of verified facts; do not change numbers, dates, names, entities, or evidence.\n"
             "- Do NOT invent facts, statistics, claims, URLs, regulations, or citations not backed by the research brief.\n"
             "- Write clear, engaging, professional Markdown.\n"
             "- Follow the recommended heading structure closely.\n"
