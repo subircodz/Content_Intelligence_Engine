@@ -485,11 +485,13 @@ LLM_BASE_URL=https://llm.example.com/v1
 LLM_MODEL=your-model
 ```
 
-Run the automated tests:
+Run the deterministic automated suite:
 
 ```bash
-venv/bin/pytest tests
+venv/bin/pytest -q --ignore=tests/test_llm_client.py
 ```
+
+The live LLM smoke test in `tests/test_llm_client.py` requires a reachable OpenAI-compatible LLM service and is run separately from deterministic CI.
 
 ---
 
@@ -537,7 +539,8 @@ Generated article documents are written to `output/`.
 content-intelligence-engine/
 ├── pyproject.toml
 ├── README.md
-├── .env
+├── SECURITY.md
+├── .env.example
 ├── .gitignore
 ├── .claude/
 │   └── CLAUDE.md
@@ -580,8 +583,10 @@ content-intelligence-engine/
 Run the deterministic automated suite with:
 
 ```bash
-venv/bin/pytest tests
+venv/bin/pytest -q --ignore=tests/test_llm_client.py
 ```
+
+CI also compiles the source tree before running tests. The live LLM smoke test is intentionally separate because it requires an external compatible LLM service and real runtime configuration.
 
 The test suite covers areas including:
 
@@ -604,6 +609,14 @@ The test suite covers areas including:
 - DOCX generation
 
 Live smoke tests under `scripts/` can interact with external web services and are separate from deterministic unit tests.
+
+---
+
+## Production Operations
+
+Production installation, network controls, secret handling, failure policy, and live-validation procedures are documented in `docs/PRODUCTION.md`. Security assumptions and reporting guidance are documented in `SECURITY.md`.
+
+The CLI returns a non-zero exit code when a pipeline fails, so schedulers and job runners can detect unsuccessful runs.
 
 ---
 
