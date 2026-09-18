@@ -24,3 +24,9 @@ def test_language_suffix_is_used_for_non_english_output(tmp_path):
     path = save_article_docx("తెలుగు", "Test Article", output_dir=str(tmp_path), language=ContentLanguage.TELUGU)
     assert path is not None
     assert path.name == "test-article-telugu.docx"
+
+
+def test_unicode_title_is_preserved_in_filename(tmp_path):
+    path = save_article_docx("தமிழ்", "தமிழ் வழிகாட்டி", output_dir=str(tmp_path), language=ContentLanguage.TAMIL)
+    assert path is not None
+    assert path.name == "தமிழ்-வழிகாட்டி-tamil.docx"
