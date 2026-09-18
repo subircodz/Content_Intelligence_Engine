@@ -12,7 +12,8 @@ from intelligence_content_engine.language import ContentLanguage
 
 
 def safe_filename(title: str) -> str:
-    value = re.sub(r"[^a-zA-Z0-9]+", "-", str(title).strip().lower())
+    value = re.sub(r"[^\w\s-]+", "", str(title).strip().lower(), flags=re.UNICODE)
+    value = re.sub(r"[\s_-]+", "-", value)
     value = re.sub(r"^-+|-+$", "", value)
     return value or "untitled-article"
 
