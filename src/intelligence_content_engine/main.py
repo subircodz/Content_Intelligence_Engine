@@ -32,6 +32,7 @@ async def run_pipeline(
     topic: str,
     client_config: ClientConfig,
     language: ContentLanguage = ContentLanguage.ENGLISH,
+    max_competitors: int = 5,
 ) -> Optional[str]:
     display_info(f"Target: [bold]{client_config.name}[/bold] ({client_config.domain})")
     display_info(f"Target Topic: [bold]{topic}[/bold]")
@@ -73,7 +74,7 @@ async def run_pipeline(
     competitor_status = PhaseStatus.FAILED
     competitor_analysis: Optional[CompetitorAnalysis] = None
     try:
-        async with CompetitorAnalyzer(llm_client=llm_client, client_config=client_config, max_competitors=5) as analyzer:
+        async with CompetitorAnalyzer(llm_client=llm_client, client_config=client_config, max_competitors=max_competitors) as analyzer:
             with console.status("[bold cyan]Analyzing competitor content..."):
                 competitor_analysis, competitor_status = await analyzer.analyze(topic)
         if competitor_analysis and competitor_analysis.domains_analyzed:
@@ -198,8 +199,17 @@ def main() -> None:
         choices=[language.value for language in ContentLanguage],
         help="Output document language. Overrides CONTENT_LANGUAGE.",
     )
+    parser.add_argument(
+        "--max-competitors",
+        type=int,
+        default=5,
+        help="Maximum competitor pages to analyze (default: 5)",
+    )
     parser.add_argument("--debug", action="store_true", help="Enable detailed debug output")
     args = parser.parse_args()
+
+    if not 1 <= args.max_competitors <= 10:
+        parser.error("max-competitors must be between 1 and 10")
 
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.WARNING)
     display_banner()
@@ -224,7 +234,7 @@ def main() -> None:
 
     try:
         language = ContentLanguage.parse(args.language) if args.language else settings.content_language
-        article = asyncio.run(run_pipeline(topic, client_config, language=language))
+        article = asyncio.run(run_pipeline(topic, client_config, language=language, max_competitors=args.max_competitors))
         if article is None:
             sys.exit(1)
     except KeyboardInterrupt:
