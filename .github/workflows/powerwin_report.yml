@@ -7,11 +7,11 @@ on:
 
 permissions:
   contents: read
-  models: read
 
 jobs:
   generate:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -43,10 +43,17 @@ jobs:
           done
           curl -fsS http://127.0.0.1:11434/api/tags >/dev/null
           ollama pull qwen3:0.6b
-
       - name: Generate report
         run: |
-          python -m intelligence_content_engine.main             --target-domain "power.win"             --target-brand "Power.win"             --language "${{ matrix.language }}"             "crypto casino"
+          python -m intelligence_content_engine.main \
+            --target-domain "power.win" \
+            --target-brand "Power.win" \
+            --first-party-sitemap "https://power.win/sitemap.xml" \
+            --language "${{ matrix.language }}" \
+            "crypto casino"
+      - name: Validate generated report
+        run: |
+          test -n "$(find output -maxdepth 1 -type f -name '*.docx' -print -quit)"
       - name: Upload generated report
         uses: actions/upload-artifact@v4
         with:
