@@ -2,6 +2,7 @@ import hashlib
 import json
 import logging
 import time
+from urllib.parse import urlparse
 from collections import defaultdict
 from typing import Optional
 
@@ -237,6 +238,13 @@ class Researcher:
             relevant = self._filter_sources_by_question(first_party_sources, question)[:MAX_SITEMAP_SOURCES_PER_QUESTION]
             sources = relevant + sources
 
+        # Search engines may return target-domain pages as UNKNOWN because
+        # source classification is intentionally domain-agnostic. For a
+        # first-party question, promote only URLs belonging to the configured
+        # target domain (or its first-party domains) before applying the
+        # source-type filter.
+        sources = self._promote_target_sources(sources, question)
+
         if question.required_source_types:
             sources = [source for source in sources if source.source_type in question.required_source_types]
 
@@ -265,6 +273,24 @@ class Researcher:
             method = "browser" if hasattr(self.fetcher, "browser_fetcher") else "http"
             evidence.append((source, content, question.question, question.is_first_party_check, method))
         return evidence, gaps
+
+    def _promote_target_sources(self, sources: list[Source], question: ResearchQuestion) -> list[Source]:
+        if not question.is_first_party_check:
+            return sources
+        config = getattr(self, "client_config", None)
+        if config is None:
+            return sources
+
+        promoted: list[Source] = []
+        for source in sources:
+            try:
+                host = (urlparse(str(source.url)).hostname or "").lower().removeprefix("www.")
+                if config.is_first_party_url(str(source.url)):
+                    source.source_type = SourceType.FIRST_PARTY
+            except Exception:
+                pass
+            promoted.append(source)
+        return promoted
 
     def _build_search_query(self, question: ResearchQuestion) -> str:
         return question.question
