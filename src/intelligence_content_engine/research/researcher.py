@@ -83,8 +83,7 @@ class Researcher:
                 ResearchQuestion(
                     question=f"What authoritative external context is relevant to: {topic}?",
                     priority="high",
-                    required_source_types=[SourceType.REGULATORY, SourceType.AUTHORITATIVE, SourceType.PRIMARY],
-                    notes="Fallback external research question.",
+                    notes="Fallback external research question. Prefer authoritative sources, but do not discard useful fetched evidence solely because the search provider classified it as unknown.",
                 ),
             ],
             required_first_party_checks=[f"Target-site information relevant to {topic}"],
