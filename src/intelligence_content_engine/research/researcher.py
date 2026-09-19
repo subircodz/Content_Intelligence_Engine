@@ -2,7 +2,6 @@ import hashlib
 import json
 import logging
 import time
-from urllib.parse import urlparse
 from collections import defaultdict
 from typing import Optional
 
@@ -284,7 +283,6 @@ class Researcher:
         promoted: list[Source] = []
         for source in sources:
             try:
-                host = (urlparse(str(source.url)).hostname or "").lower().removeprefix("www.")
                 if config.is_first_party_url(str(source.url)):
                     source.source_type = SourceType.FIRST_PARTY
             except Exception:
