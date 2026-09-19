@@ -154,6 +154,7 @@ def _make_source(url: str, query: str, provider: str, title: str = "", snippet: 
         provider=provider,
         title=title or snippet or None,
         notes=f"Search query: {query}" if snippet else None,
+        search_snippet=snippet or None,
     )
 
 
