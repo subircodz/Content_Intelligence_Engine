@@ -19,7 +19,7 @@ jobs:
       TARGET_BRAND: Power.win
       TARGET_DOMAIN: power.win
       LLM_BASE_URL: http://127.0.0.1:11434/v1
-      LLM_MODEL: qwen3:4b
+      LLM_MODEL: qwen3:1.7b
       LLM_API_KEY: ollama
     steps:
       - uses: actions/checkout@v4
@@ -41,7 +41,7 @@ jobs:
             sleep 2
           done
           curl -fsS http://127.0.0.1:11434/api/tags >/dev/null
-          ollama pull qwen3:4b
+          ollama pull qwen3:1.7b
 
       - name: Generate report
         run: |
