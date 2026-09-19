@@ -76,7 +76,7 @@ class HybridFetcher:
             return content  # Return HTTP content even if insufficient
 
     def _browser_fetch(self, url: str) -> Optional[str]:
-        """Run the synchronous Playwright fetcher safely from async code."""
+        """Run a fresh synchronous Playwright browser entirely within one worker thread."""
         import asyncio
         import threading
 
@@ -89,10 +89,22 @@ class HybridFetcher:
         error: list[BaseException] = []
 
         def worker() -> None:
+            # Playwright sync objects are thread-affine. Do not reuse the
+            # persistent BrowserFetcher across worker threads.
+            from intelligence_content_engine.research.tools.browser_fetcher import BrowserFetcher
+
+            browser = BrowserFetcher(
+                timeout=self.browser_fetcher.timeout,
+                user_agent=self.browser_fetcher.user_agent,
+                min_content_length=self.browser_fetcher.min_content_length,
+                headless=self.browser_fetcher.headless,
+            )
             try:
-                result[0] = self.browser_fetcher.fetch(url)
+                result[0] = browser.fetch(url)
             except BaseException as exc:
                 error.append(exc)
+            finally:
+                browser.close()
 
         thread = threading.Thread(target=worker, name="content-engine-browser-fetch", daemon=True)
         thread.start()
