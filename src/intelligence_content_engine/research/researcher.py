@@ -266,6 +266,20 @@ class Researcher:
                 content = None
                 logger.debug("Failed to fetch %s: %s", source.url, exc)
             if not content:
+                snippet = getattr(source, "search_snippet", None)
+                if snippet and len(snippet.strip()) >= 40:
+                    content = snippet.strip()
+                    method = "search_snippet"
+                    gaps.append(
+                        ResearchGap(
+                            question=question.question,
+                            reason=f"Page could not be fetched; used the search-engine snippet as limited evidence: {source.name}",
+                            attempted_sources=[str(source.url)],
+                            importance="low",
+                        )
+                    )
+                    evidence.append((source, content, question.question, question.is_first_party_check, method))
+                    continue
                 gaps.append(ResearchGap(question=question.question, reason=f"Could not fetch source: {source.name}", attempted_sources=[str(source.url)], importance=question.priority))
                 continue
             method = "browser" if hasattr(self.fetcher, "browser_fetcher") else "http"
