@@ -58,9 +58,12 @@ class HybridFetcher:
 
         logger.info("Falling back to browser for: %s", url)
 
-        # Fallback to browser
+        # Fallback to browser. BrowserFetcher uses Playwright's synchronous API.
+        # Research runs inside asyncio, so run the synchronous browser operation
+        # in a worker thread to avoid Playwright's "sync API inside asyncio loop"
+        # failure.
         try:
-            content = self.browser_fetcher.fetch(url)
+            content = self._browser_fetch(url)
             if self._is_usable_content(content):
                 logger.debug("Browser fetch successful for: %s", url)
                 return content
@@ -71,6 +74,32 @@ class HybridFetcher:
             logger.warning("Browser fetch failed for %s: %s", url, e)
             self._failed_urls.add(url)
             return content  # Return HTTP content even if insufficient
+
+    def _browser_fetch(self, url: str) -> Optional[str]:
+        """Run the synchronous Playwright fetcher safely from async code."""
+        import asyncio
+        import threading
+
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return self.browser_fetcher.fetch(url)
+
+        result: list[Optional[str]] = [None]
+        error: list[BaseException] = []
+
+        def worker() -> None:
+            try:
+                result[0] = self.browser_fetcher.fetch(url)
+            except BaseException as exc:
+                error.append(exc)
+
+        thread = threading.Thread(target=worker, name="content-engine-browser-fetch", daemon=True)
+        thread.start()
+        thread.join()
+        if error:
+            raise error[0]
+        return result[0]
 
     def fetch_raw(self, url: str) -> Optional[str]:
         """Fetch raw content without extraction (for sitemaps, etc.)."""
