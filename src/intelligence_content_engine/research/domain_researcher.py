@@ -54,6 +54,12 @@ class DomainResearcher(Researcher):
             "Use is_first_party_check=true only for target-site first-party verification. Do not assume any particular industry."
         )
 
+    def _build_search_query(self, question: ResearchQuestion) -> str:
+        query = question.question
+        if question.is_first_party_check:
+            return f"site:{self.client_config.domain} {query}"
+        return query
+
     def _filter_sources_by_question(self, sources: list[Source], question: ResearchQuestion) -> list[Source]:
         def priority(source: Source) -> int:
             host = urlparse(str(source.url)).hostname or ""
