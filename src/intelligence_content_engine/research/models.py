@@ -46,6 +46,7 @@ class Source(BaseModel):
     updated_date: Optional[datetime] = Field(None, description="Last known update date")
     checked_date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="When this source was last verified")
     notes: Optional[str] = Field(None, description="Additional context about the source")
+    search_snippet: Optional[str] = Field(None, description="Search-engine snippet captured when the page itself cannot be fetched")
 
     model_config = {"use_enum_values": True}
 
