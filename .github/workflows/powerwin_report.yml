@@ -32,10 +32,19 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e .
           playwright install chromium
+      - name: Start local LLM
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          nohup ollama serve > /tmp/ollama.log 2>&1 &
+          for i in {1..30}; do
+            curl -fsS http://127.0.0.1:11434/api/tags >/dev/null 2>&1 && break
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:11434/api/tags >/dev/null
+          ollama pull qwen3:4b
+
       - name: Generate report
         run: |
-          test -n "$LLM_BASE_URL" || (echo "LLM_BASE_URL secret is not configured" && exit 1)
-          test -n "$LLM_MODEL" || (echo "LLM_MODEL secret is not configured" && exit 1)
           python -m intelligence_content_engine.main             --target-domain "power.win"             --target-brand "Power.win"             --language "${{ matrix.language }}"             "crypto casino"
       - name: Upload generated report
         uses: actions/upload-artifact@v4
