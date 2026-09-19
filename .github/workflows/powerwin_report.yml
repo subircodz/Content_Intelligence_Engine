@@ -50,6 +50,7 @@ jobs:
             --target-domain "power.win" \
             --target-brand "Power.win" \
             --first-party-sitemap "https://power.win/sitemap.xml" \
+            --first-party-sitemap "https://blog.power.win/sitemap.xml" \
             --language "${{ matrix.language }}" \
             --max-competitors 2 \
             "crypto casino"
