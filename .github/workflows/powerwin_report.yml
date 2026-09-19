@@ -1,0 +1,48 @@
+name: Power.win Content Intelligence Report
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [telugu, tamil, kannada, malayalam]
+    env:
+      TARGET_BRAND: Power.win
+      TARGET_DOMAIN: power.win
+      LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+      LLM_MODEL: ${{ secrets.LLM_MODEL }}
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+      GOOGLE_CSE_ID: ${{ secrets.GOOGLE_CSE_ID }}
+      BING_API_KEY: ${{ secrets.BING_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install engine
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          playwright install chromium
+      - name: Generate report
+        run: |
+          test -n "$LLM_BASE_URL" || (echo "LLM_BASE_URL secret is not configured" && exit 1)
+          test -n "$LLM_MODEL" || (echo "LLM_MODEL secret is not configured" && exit 1)
+          python -m intelligence_content_engine.main             --target-domain "power.win"             --target-brand "Power.win"             --language "${{ matrix.language }}"             "crypto casino"
+      - name: Upload generated report
+        uses: actions/upload-artifact@v4
+        with:
+          name: powerwin-crypto-casino-${{ matrix.language }}
+          path: output/*.docx
+          if-no-files-found: error
