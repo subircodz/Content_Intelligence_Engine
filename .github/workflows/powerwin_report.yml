@@ -22,6 +22,7 @@ jobs:
       LLM_BASE_URL: http://127.0.0.1:11434/v1
       LLM_MODEL: qwen2.5:0.5b
       LLM_API_KEY: ollama
+      LLM_MAX_TOKENS: "2500"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
