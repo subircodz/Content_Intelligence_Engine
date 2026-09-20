@@ -106,7 +106,16 @@ class SitemapFetcher:
                     all_sources.append(source)
 
         if topic:
-            all_sources = self._filter_by_topic(all_sources, topic)
+            seed_set = {str(url).rstrip("/").lower() for url in self.seed_urls}
+            filtered = self._filter_by_topic(all_sources, topic)
+            # Explicit research seeds are deliberate evidence anchors and
+            # must survive topic filtering even when their URL path does not
+            # contain the topic keywords.
+            retained = {str(source.url).rstrip("/").lower() for source in filtered}
+            for source in all_sources:
+                if str(source.url).rstrip("/").lower() in seed_set and str(source.url).rstrip("/").lower() not in retained:
+                    filtered.append(source)
+            all_sources = filtered
         return all_sources
 
     def _entry_to_source(self, entry: SitemapEntry) -> Optional[Source]:
