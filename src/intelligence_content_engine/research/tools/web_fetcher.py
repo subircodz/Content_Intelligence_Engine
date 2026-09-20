@@ -62,7 +62,7 @@ class WebFetcher:
                     continue
 
                 content_type = response.headers.get("content-type", "")
-                if not any(ct in content_type for ct in ["text/html", "text/plain", "application/xml", "application/xhtml+xml"]):
+                if not any(ct in content_type for ct in ["text/html", "text/plain", "application/xml", "application/xhtml+xml", "text/xml"]):
                     logger.warning("Non-text content type for %s: %s", current_url, content_type)
                     if response.status_code >= 400:
                         content = response.text[: self.max_content_length]
