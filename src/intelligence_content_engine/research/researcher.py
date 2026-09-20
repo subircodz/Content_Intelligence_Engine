@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 MAX_PLAN_QUESTIONS = 3
 MAX_SOURCES_PER_QUESTION = 2
+MAX_SOURCE_ATTEMPTS_PER_QUESTION = 8
 MAX_SITEMAP_SOURCES_TOTAL = 6
 MAX_SITEMAP_SOURCES_PER_QUESTION = 2
 MAX_FIRST_PARTY_CHECKS = 2
@@ -260,7 +261,8 @@ class Researcher:
 
         evidence = []
         gaps = []
-        for source in unique[:MAX_SOURCES_PER_QUESTION]:
+        successful_sources = 0
+        for source in unique[:MAX_SOURCE_ATTEMPTS_PER_QUESTION]:
             try:
                 content = self.fetcher.fetch(str(source.url))
             except Exception as exc:
@@ -280,11 +282,17 @@ class Researcher:
                         )
                     )
                     evidence.append((source, content, question.question, question.is_first_party_check, method))
+                    successful_sources += 1
+                    if successful_sources >= MAX_SOURCES_PER_QUESTION:
+                        break
                     continue
                 gaps.append(ResearchGap(question=question.question, reason=f"Could not fetch source: {source.name}", attempted_sources=[str(source.url)], importance=question.priority))
                 continue
             method = "browser" if hasattr(self.fetcher, "browser_fetcher") else "http"
             evidence.append((source, content, question.question, question.is_first_party_check, method))
+            successful_sources += 1
+            if successful_sources >= MAX_SOURCES_PER_QUESTION:
+                break
         return evidence, gaps
 
     def _promote_target_sources(self, sources: list[Source], question: ResearchQuestion) -> list[Source]:
