@@ -1,6 +1,7 @@
 import hashlib
 import json
 import logging
+import re
 import time
 from collections import defaultdict
 from typing import Optional
@@ -334,7 +335,41 @@ class Researcher:
             claim = self._parse_batch_claim(claim_data, evidence_list)
             if claim:
                 claims.append(claim)
+
+        # Tiny local models can return empty/invalid JSON even when valid
+        # evidence was retrieved. Preserve a grounded fact instead of
+        # converting available evidence into a hard quality-gate failure.
+        if not claims:
+            for source, content, _, _, retrieval_method in evidence_list[:1]:
+                excerpt = self._safe_excerpt(content)
+                if not excerpt:
+                    continue
+                evidence = Evidence(
+                    source=source,
+                    excerpt=excerpt,
+                    notes="Deterministic fallback: exact excerpt retained because LLM claim extraction returned no usable claims.",
+                    retrieval_method=retrieval_method,
+                    content_sha256=hashlib.sha256(content.encode("utf-8")).hexdigest(),
+                    excerpt_verified=True,
+                )
+                claims.append(
+                    Claim(
+                        text=f"Source evidence: {excerpt}",
+                        status=ClaimStatus.PARTIALLY_SUPPORTED,
+                        nature=InformationNature.FACT,
+                        evidence=[evidence],
+                        confidence=0.6,
+                        notes="Use only as source-grounded evidence; do not infer beyond the excerpt.",
+                    )
+                )
         return claims
+
+    def _safe_excerpt(self, content: str) -> str:
+        text = " ".join(line.strip() for line in content.splitlines() if line.strip())
+        if not text:
+            return ""
+        sentence = re.split(r"(?<=[.!?])\s+", text, maxsplit=1)[0].strip()
+        return (sentence or text)[:300].strip()
 
     def _build_extraction_prompt(self, content: str, source: Source, question: str, is_first_party: bool) -> str:
         source_type = source.source_type.value if hasattr(source.source_type, "value") else source.source_type
