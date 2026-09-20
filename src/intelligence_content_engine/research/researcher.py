@@ -47,6 +47,7 @@ class Researcher:
         self.search_tool = search_tool or WebSearchTool()
         self.fetcher = fetcher or HybridFetcher()
         self.sitemap_fetcher = sitemap_fetcher or SitemapFetcher()
+        self.client_config = getattr(self.sitemap_fetcher, "client_config", None)
 
     def create_plan(self, topic: str) -> ResearchPlan:
         prompt = self._build_plan_prompt(topic)
