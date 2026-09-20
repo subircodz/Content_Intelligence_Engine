@@ -33,6 +33,7 @@ async def run_pipeline(
     client_config: ClientConfig,
     language: ContentLanguage = ContentLanguage.ENGLISH,
     max_competitors: int = 5,
+    first_party_seeds: Optional[list[str]] = None,
 ) -> Optional[str]:
     display_info(f"Target: [bold]{client_config.name}[/bold] ({client_config.domain})")
     display_info(f"Target Topic: [bold]{topic}[/bold]")
@@ -52,7 +53,7 @@ async def run_pipeline(
                 llm_client=llm_client,
                 client_config=client_config,
                 fetcher=shared_fetcher,
-                sitemap_fetcher=SitemapFetcher(client_config=client_config, fetcher=shared_fetcher),
+                sitemap_fetcher=SitemapFetcher(client_config=client_config, fetcher=shared_fetcher, seed_urls=first_party_seeds),
             ) as researcher:
                 research_result, research_status = await researcher.research(topic)
     except Exception as exc:
@@ -205,6 +206,12 @@ def main() -> None:
         default=5,
         help="Maximum competitor pages to analyze (default: 5)",
     )
+    parser.add_argument(
+        "--first-party-seed",
+        action="append",
+        dest="first_party_seeds",
+        help="Explicit first-party research URL; repeatable",
+    )
     parser.add_argument("--debug", action="store_true", help="Enable detailed debug output")
     args = parser.parse_args()
 
@@ -234,7 +241,7 @@ def main() -> None:
 
     try:
         language = ContentLanguage.parse(args.language) if args.language else settings.content_language
-        article = asyncio.run(run_pipeline(topic, client_config, language=language, max_competitors=args.max_competitors))
+        article = asyncio.run(run_pipeline(topic, client_config, language=language, max_competitors=args.max_competitors, first_party_seeds=args.first_party_seeds))
         if article is None:
             sys.exit(1)
     except KeyboardInterrupt:
