@@ -51,6 +51,10 @@ jobs:
             --target-brand "Power.win" \
             --first-party-sitemap "https://power.win/sitemap.xml" \
             --first-party-sitemap "https://blog.power.win/sitemap.xml" \
+            --first-party-seed "https://blog.power.win/" \
+            --first-party-seed "https://blog.power.win/editorial-policy/" \
+            --first-party-seed "https://blog.power.win/2026/09/11/what-rng-certification-proves/" \
+            --first-party-seed "https://blog.power.win/2026/02/19/provably-fair-explained-how-to-verify-results/" \
             --language "${{ matrix.language }}" \
             --max-competitors 2 \
             "crypto casino"
