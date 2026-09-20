@@ -32,12 +32,14 @@ class SitemapFetcher:
         timeout: float = 15.0,
         user_agent: str = "ContentIntelligenceEngine/1.0",
         fetcher: Optional[HybridFetcher] = None,
+        seed_urls: Optional[list[str]] = None,
     ) -> None:
         self.client_config = client_config
         self.sitemap_urls = tuple(sitemap_urls or (client_config.first_party_sitemaps if client_config else ()))
         self.timeout = timeout
         self.user_agent = user_agent
         self._fetcher = fetcher or HybridFetcher()
+        self.seed_urls = tuple(seed_urls or ())
 
     def fetch_sitemap(self, sitemap_url: str) -> list[SitemapEntry]:
         try:
@@ -81,6 +83,22 @@ class SitemapFetcher:
         self._fetcher.clear_failed_cache()
 
         all_sources: list[Source] = []
+        for seed_url in self.seed_urls:
+            try:
+                if self.client_config.is_first_party_url(seed_url):
+                    parsed = urlparse(seed_url)
+                    path = parsed.path.strip("/")
+                    name = f"{parsed.hostname or self.client_config.domain} - {path.replace('/', ' > ')}" if path else f"{parsed.hostname or self.client_config.domain} - Home"
+                    all_sources.append(Source(
+                        name=name,
+                        url=seed_url,
+                        source_type=SourceType.FIRST_PARTY,
+                        title=name,
+                        notes="Configured first-party research seed",
+                    ))
+            except Exception as exc:
+                logger.debug("Invalid first-party seed URL %s: %s", seed_url, exc)
+
         for sitemap_url in self.sitemap_urls:
             for entry in self.fetch_sitemap(sitemap_url):
                 source = self._entry_to_source(entry)
